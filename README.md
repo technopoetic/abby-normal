@@ -18,15 +18,14 @@ abby-normal stores knowledge, decisions, and patterns from AI-assisted developme
 # Setup
 cd ~/code/abby-normal
 python3 setup.py          # Creates ~/.local/share/abby-normal/memory.db
-python3 seed_database.py  # Adds initial projects and vocabulary
 
 # Create symlinks
 ln -s ~/code/abby-normal/memory_query.py ~/.local/bin/memory-query
 ln -s ~/code/abby-normal/orchestration.py ~/.local/bin/orchestration
 
-# Query memory
-memory-query search authentication
-memory-query search --project=mekanik testing
+# Add your projects
+memory-query add --type=learning --title="..." --content="..." --project=myproject
+```
 memory-query project mekanik
 
 # Add memory
@@ -65,7 +64,6 @@ abby-normal/
 ├── schema.sql            # Database schema
 ├── memory_query.py       # Query CLI
 ├── orchestration.py      # Multi-agent coordination
-├── seed_database.py      # Initial data
 └── AGENTS.md             # Detailed usage guide
 ```
 

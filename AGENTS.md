@@ -140,8 +140,6 @@ abby-normal/
 ├── schema.sql              # Database schema
 ├── memory_query.py         # Query CLI tool
 ├── orchestration.py        # Orchestration CLI tool
-├── seed_database.py        # Initial data seeding
-├── migrate_*.py            # Migration scripts from PROJECT-MEMORY.json
 ├── memory_export.py        # Export to JSON
 └── README.md               # Documentation
 
