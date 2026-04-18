@@ -65,7 +65,6 @@ class MemoryQuery:
     def search_memory(
         self,
         query: Optional[str] = None,
-        entry_type: Optional[str] = None,
         project_id: Optional[str] = None,
         component_name: Optional[str] = None,
         tags: Optional[List[str]] = None,
@@ -78,7 +77,6 @@ class MemoryQuery:
         
         Args:
             query: Full-text search query
-            entry_type: Filter by type ('learning', 'pattern', 'decision', 'pitfall', etc.)
             project_id: Filter by project
             component_name: Filter by component
             tags: Filter by tags (must have ALL specified tags)
@@ -95,11 +93,6 @@ class MemoryQuery:
             # Escape special FTS characters (hyphens, etc.) by wrapping in quotes
             escaped_query = f'"{query}"'
             params.append(escaped_query)
-
-        # Type filter
-        if entry_type:
-            where_clauses.append("m.entry_type = ?")
-            params.append(entry_type)
 
         # Project filter
         if project_id:
@@ -129,7 +122,6 @@ class MemoryQuery:
     def add_memory_entry(
         self,
         entry_id: str,
-        entry_type: str,
         title: str,
         content: str,
         project_id: Optional[str] = None,
@@ -142,7 +134,6 @@ class MemoryQuery:
         
         Args:
             entry_id: Unique ID (e.g., 'LEARN-002', 'PATTERN-003')
-            entry_type: 'learning', 'pattern', 'decision', 'pitfall', 'changelog'
             title: Short title
             content: Full content/description
             project_id: Associated project (optional)
@@ -153,12 +144,11 @@ class MemoryQuery:
         self.conn.execute(
             """
             INSERT INTO memory_entries 
-            (id, entry_type, project_id, component_name, title, content, metadata, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (id, project_id, component_name, title, content, metadata, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 entry_id,
-                entry_type,
                 project_id,
                 component_name,
                 title,
