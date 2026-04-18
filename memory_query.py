@@ -189,8 +189,8 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: memory_query.py <command> [args...]")
         print("Commands:")
-        print("  search <query> [--type=X] [--project=Y] [--tags=a,b,c] [--limit=N]")
-        print("  add --type=X --title=Y --content=Z [--project=A] [--component=B] [--tags=c,d] [--metadata=JSON]")
+        print("  search <query> [--project=Y] [--tags=a,b,c] [--limit=N]")
+        print("  add --title=Y --content=Z [--project=A] [--component=B] [--tags=c,d] [--metadata=JSON]")
         print("  project <project_id>")
         print("  active-projects")
         print("  vocabulary [--category=X]")
@@ -202,7 +202,6 @@ def main():
         if command == "search":
             # Parse arguments
             query = None
-            entry_type = None
             project_id = None
             tags = None
             limit = 20
@@ -210,9 +209,7 @@ def main():
             i = 2
             while i < len(sys.argv):
                 arg = sys.argv[i]
-                if arg.startswith("--type="):
-                    entry_type = arg.split("=", 1)[1]
-                elif arg.startswith("--project="):
+                if arg.startswith("--project="):
                     project_id = arg.split("=", 1)[1]
                 elif arg.startswith("--tags="):
                     tags = arg.split("=", 1)[1].split(",")
@@ -224,7 +221,6 @@ def main():
 
             results = mq.search_memory(
                 query=query,
-                entry_type=entry_type,
                 project_id=project_id,
                 tags=tags,
                 limit=limit,
@@ -233,7 +229,6 @@ def main():
 
         elif command == "add":
             # Parse arguments
-            entry_type = None
             title = None
             content = None
             project_id = None
@@ -242,9 +237,7 @@ def main():
             metadata = None
 
             for arg in sys.argv[2:]:
-                if arg.startswith("--type="):
-                    entry_type = arg.split("=", 1)[1]
-                elif arg.startswith("--title="):
+                if arg.startswith("--title="):
                     title = arg.split("=", 1)[1]
                 elif arg.startswith("--content="):
                     content = arg.split("=", 1)[1]
@@ -257,8 +250,8 @@ def main():
                 elif arg.startswith("--metadata="):
                     metadata = json.loads(arg.split("=", 1)[1])
 
-            if not entry_type or not title or not content:
-                print("Error: --type, --title, and --content are required")
+            if not title or not content:
+                print("Error: --title and --content are required")
                 sys.exit(1)
 
             # Generate entry ID
@@ -267,13 +260,10 @@ def main():
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
             
-            # Determine prefix based on type
-            prefix = entry_type.upper()[:5]
-            entry_id = f"{prefix}-{timestamp}-{suffix}"
+            entry_id = f"MEM-{timestamp}-{suffix}"
 
             mq.add_memory_entry(
                 entry_id=entry_id,
-                entry_type=entry_type,
                 title=title,
                 content=content,
                 project_id=project_id,
