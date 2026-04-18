@@ -1,0 +1,81 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+AgentSession	orchestration.py	/^class AgentSession:$/;"	c
+DB_DIR	setup.py	/^DB_DIR = Path.home() \/ ".local" \/ "share" \/ "abby-normal"$/;"	v
+DB_PATH	memory_export.py	/^DB_PATH = Path.home() \/ ".local" \/ "share" \/ "abby-normal" \/ "memory.db"$/;"	v
+DB_PATH	memory_query.py	/^DB_PATH = Path.home() \/ ".local" \/ "share" \/ "abby-normal" \/ "memory.db"$/;"	v
+DB_PATH	migrate_lora_data.py	/^DB_PATH = Path.home() \/ ".local" \/ "share" \/ "abby-normal" \/ "memory.db"$/;"	v
+DB_PATH	migrate_mekanik_data.py	/^DB_PATH = Path.home() \/ ".local" \/ "share" \/ "abby-normal" \/ "memory.db"$/;"	v
+DB_PATH	orchestration.py	/^DB_PATH = Path.home() \/ ".local" \/ "share" \/ "abby-normal" \/ "memory.db"$/;"	v
+DB_PATH	seed_database.py	/^DB_PATH = Path.home() \/ ".local" \/ "share" \/ "abby-normal" \/ "memory.db"$/;"	v
+DB_PATH	setup.py	/^DB_PATH = DB_DIR \/ "memory.db"$/;"	v
+InterfaceContract	orchestration.py	/^class InterfaceContract:$/;"	c
+MemoryQuery	memory_query.py	/^class MemoryQuery:$/;"	c
+OrchestrationManager	orchestration.py	/^class OrchestrationManager:$/;"	c
+PROJECT_MEMORY_PATH	migrate_mekanik_data.py	/^PROJECT_MEMORY_PATH = Path("\/home\/rhibbitts\/code\/python\/mekanik\/.worktrees\/tiered-subscription-pricing\/PROJECT-MEMORY.json")$/;"	v
+SCHEMA_PATH	setup.py	/^SCHEMA_PATH = Path(__file__).parent \/ "schema.sql"$/;"	v
+__enter__	memory_query.py	/^    def __enter__(self):$/;"	m	class:MemoryQuery	file:
+__enter__	orchestration.py	/^    def __enter__(self):$/;"	m	class:OrchestrationManager	file:
+__exit__	memory_query.py	/^    def __exit__(self, exc_type, exc_val, exc_tb):$/;"	m	class:MemoryQuery	file:
+__exit__	orchestration.py	/^    def __exit__(self, exc_type, exc_val, exc_tb):$/;"	m	class:OrchestrationManager	file:
+__init__	memory_query.py	/^    def __init__(self, db_path: Path = DB_PATH):$/;"	m	class:MemoryQuery
+__init__	orchestration.py	/^    def __init__(self, db_path: Path = DB_PATH):$/;"	m	class:OrchestrationManager
+_cache_project_language	orchestration.py	/^    def _cache_project_language(self, project_id: str, language: str, confidence: float):$/;"	m	class:OrchestrationManager
+_generate_id	orchestration.py	/^    def _generate_id(self, prefix: str) -> str:$/;"	m	class:OrchestrationManager
+_get_project	orchestration.py	/^    def _get_project(self, project_id: str) -> Optional[Dict]:$/;"	m	class:OrchestrationManager
+_rows_to_dicts	memory_query.py	/^    def _rows_to_dicts(self, rows: List[sqlite3.Row]) -> List[Dict[str, Any]]:$/;"	m	class:MemoryQuery
+_rows_to_dicts	orchestration.py	/^    def _rows_to_dicts(self, rows: List[sqlite3.Row]) -> List[Dict[str, Any]]:$/;"	m	class:OrchestrationManager
+add_dependency	orchestration.py	/^    def add_dependency(self, task_id: str, depends_on_task_id: str):$/;"	m	class:OrchestrationManager
+add_memory_entry	memory_query.py	/^    def add_memory_entry($/;"	m	class:MemoryQuery
+add_vocabulary_term	memory_query.py	/^    def add_vocabulary_term(self, category: str, term: str) -> None:$/;"	m	class:MemoryQuery
+assign_fix_agent	orchestration.py	/^    def assign_fix_agent(self, mismatch_id: str, fix_agent_id: str):$/;"	m	class:OrchestrationManager
+complete_agent_session	orchestration.py	/^    def complete_agent_session($/;"	m	class:OrchestrationManager
+complete_orchestration	orchestration.py	/^    def complete_orchestration(self, orchestration_id: str):$/;"	m	class:OrchestrationManager
+complete_wave	orchestration.py	/^    def complete_wave(self, wave_id: str, synthesis_summary: str):$/;"	m	class:OrchestrationManager
+create_agent_session	orchestration.py	/^    def create_agent_session($/;"	m	class:OrchestrationManager
+create_orchestration_session	orchestration.py	/^    def create_orchestration_session($/;"	m	class:OrchestrationManager
+create_wave	orchestration.py	/^    def create_wave($/;"	m	class:OrchestrationManager
+detect_project_language	orchestration.py	/^    def detect_project_language(self, project_path: str) -> Tuple[str, float]:$/;"	m	class:OrchestrationManager
+export_memory	memory_export.py	/^def export_memory(db_path: Path = DB_PATH, output_path: Optional[Path] = None) -> Dict[str, Any]:$/;"	f
+get_active_projects	memory_query.py	/^    def get_active_projects(self) -> List[Dict[str, Any]]:$/;"	m	class:MemoryQuery
+get_project	memory_query.py	/^    def get_project(self, project_id: str) -> Optional[Dict[str, Any]]:$/;"	m	class:MemoryQuery
+get_project_components	memory_query.py	/^    def get_project_components(self, project_id: str) -> List[Dict[str, Any]]:$/;"	m	class:MemoryQuery
+get_project_language	orchestration.py	/^    def get_project_language(self, project_id: str) -> str:$/;"	m	class:OrchestrationManager
+get_ready_agents	orchestration.py	/^    def get_ready_agents(self, wave_id: str) -> List[Dict]:$/;"	m	class:OrchestrationManager
+get_running_agents_count	orchestration.py	/^    def get_running_agents_count(self, wave_id: str) -> int:$/;"	m	class:OrchestrationManager
+get_unresolved_mismatches	orchestration.py	/^    def get_unresolved_mismatches(self, wave_id: str) -> List[Dict]:$/;"	m	class:OrchestrationManager
+get_vocabulary	memory_query.py	/^    def get_vocabulary(self, category: Optional[str] = None) -> List[Dict[str, Any]]:$/;"	m	class:MemoryQuery
+get_wave_agents	orchestration.py	/^    def get_wave_agents(self, wave_id: str) -> List[Dict]:$/;"	m	class:OrchestrationManager
+get_wave_contracts	orchestration.py	/^    def get_wave_contracts(self, wave_id: str) -> List[InterfaceContract]:$/;"	m	class:OrchestrationManager
+is_wave_complete	orchestration.py	/^    def is_wave_complete(self, wave_id: str) -> bool:$/;"	m	class:OrchestrationManager
+main	memory_query.py	/^def main():$/;"	f
+main	migrate_lora_data.py	/^def main():$/;"	f
+main	migrate_mekanik_data.py	/^def main():$/;"	f
+main	orchestration.py	/^def main():$/;"	f
+main	seed_database.py	/^def main():$/;"	f
+memory_entries.IF	schema.sql	/^CREATE TRIGGER IF NOT EXISTS memory_ad AFTER DELETE ON memory_entries BEGIN$/;"	T
+memory_entries.IF	schema.sql	/^CREATE TRIGGER IF NOT EXISTS memory_ai AFTER INSERT ON memory_entries BEGIN$/;"	T
+memory_entries.IF	schema.sql	/^CREATE TRIGGER IF NOT EXISTS memory_au AFTER UPDATE ON memory_entries BEGIN$/;"	T
+migrate_architectural_decisions	migrate_mekanik_data.py	/^def migrate_architectural_decisions(conn, arch_decisions_list, project_id="mekanik"):$/;"	f
+migrate_changelog	migrate_mekanik_data.py	/^def migrate_changelog(conn, changelog_list, project_id="mekanik", component="Backend"):$/;"	f
+migrate_decisions	migrate_mekanik_data.py	/^def migrate_decisions(conn, decisions_list, project_id="mekanik", component="Backend"):$/;"	f
+migrate_learnings	migrate_mekanik_data.py	/^def migrate_learnings(conn, learnings_list, project_id="mekanik", component="Backend"):$/;"	f
+migrate_lora_learnings	migrate_lora_data.py	/^def migrate_lora_learnings(conn):$/;"	f
+migrate_open_questions	migrate_mekanik_data.py	/^def migrate_open_questions(conn, questions_list, project_id="mekanik", component="Backend"):$/;"	f
+migrate_phases	migrate_mekanik_data.py	/^def migrate_phases(conn, phases_list, project_id="mekanik"):$/;"	f
+output_file	memory_export.py	/^    output_file = Path(sys.argv[1]) if len(sys.argv) > 1 else None$/;"	v
+record_contract_mismatch	orchestration.py	/^    def record_contract_mismatch($/;"	m	class:OrchestrationManager
+resolve_mismatch	orchestration.py	/^    def resolve_mismatch(self, mismatch_id: str):$/;"	m	class:OrchestrationManager
+rows_to_dicts	memory_export.py	/^    def rows_to_dicts(cursor):$/;"	f	function:export_memory
+search_memory	memory_query.py	/^    def search_memory($/;"	m	class:MemoryQuery
+seed_memory_entries	seed_database.py	/^def seed_memory_entries(conn):$/;"	f
+seed_projects	seed_database.py	/^def seed_projects(conn):$/;"	f
+seed_vocabulary	seed_database.py	/^def seed_vocabulary(conn):$/;"	f
+setup	setup.py	/^def setup():$/;"	f
+start_agent_session	orchestration.py	/^    def start_agent_session(self, session_id: str):$/;"	m	class:OrchestrationManager
+start_wave	orchestration.py	/^    def start_wave(self, wave_id: str):$/;"	m	class:OrchestrationManager
+store_interface_contract	orchestration.py	/^    def store_interface_contract($/;"	m	class:OrchestrationManager

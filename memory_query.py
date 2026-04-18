@@ -126,9 +126,9 @@ class MemoryQuery:
         content: str,
         project_id: Optional[str] = None,
         component_name: Optional[str] = None,
-        metadata: Optional[Dict] = None,
-        tags: Optional[List[str]] = None,
-    ) -> None:
+            metadata: Optional[Dict] = None,
+            tags: Optional[List[str]] = None,
+        ):
         """
         Add a new memory entry.
         
@@ -138,14 +138,19 @@ class MemoryQuery:
             content: Full content/description
             project_id: Associated project (optional)
             component_name: Associated component (optional)
-            metadata: Flexible JSON metadata
-            tags: List of tags
+            metadata: Flexible JSON metadata (tags can be included here)
+            tags: List of tags (will be merged into metadata if provided)
         """
+        # Merge tags into metadata if both are provided
+        final_metadata = metadata.copy() if metadata else {}
+        if tags:
+            final_metadata['tags'] = tags
+        
         self.conn.execute(
             """
             INSERT INTO memory_entries 
-            (id, project_id, component_name, title, content, metadata, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (id, project_id, component_name, title, content, metadata)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 entry_id,
@@ -153,8 +158,7 @@ class MemoryQuery:
                 component_name,
                 title,
                 content,
-                json.dumps(metadata) if metadata else None,
-                json.dumps(tags) if tags else None,
+                json.dumps(final_metadata) if final_metadata else None,
             ),
         )
         self.conn.commit()
