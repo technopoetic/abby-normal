@@ -36,13 +36,11 @@ CREATE TABLE IF NOT EXISTS components (
 
 CREATE TABLE IF NOT EXISTS memory_entries (
     id TEXT PRIMARY KEY,
-    entry_type TEXT NOT NULL,           -- 'learning', 'pattern', 'decision', 'pitfall', 'changelog'
     project_id TEXT,                    -- NULL for global entries
     component_name TEXT,                -- NULL for project-wide
     title TEXT NOT NULL,
     content TEXT NOT NULL,              -- Full text content
-    metadata JSON,                      -- Flexible: author, rationale, outcome, etc.
-    tags JSON,                          -- ["Python", "Testing", "API Design"]
+    metadata JSON,                      -- Flexible: author, rationale, outcome, tags, etc.
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
@@ -73,7 +71,6 @@ CREATE TRIGGER IF NOT EXISTS memory_au AFTER UPDATE ON memory_entries BEGIN
 END;
 
 -- Indexes for memory queries
-CREATE INDEX IF NOT EXISTS idx_memory_type ON memory_entries(entry_type);
 CREATE INDEX IF NOT EXISTS idx_memory_project ON memory_entries(project_id);
 CREATE INDEX IF NOT EXISTS idx_memory_created ON memory_entries(created_at DESC);
 
