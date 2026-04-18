@@ -32,13 +32,7 @@ memory-query search --project=mekanik
 memory-query search --project=abby-normal testing
 ```
 
-Filter by type:
-```bash
-memory-query search --type=decision
-memory-query search --type=pattern --tags=Python
-```
-
-Filter by tags:
+Filter by project:
 ```bash
 memory-query search --tags=Python,Testing
 memory-query search --project=mekanik --tags=API
@@ -52,49 +46,44 @@ memory-query project abby-normal
 
 ### Add Memory (At Session End)
 
-Add a learning:
+Add an entry:
 ```bash
 memory-query add \
-  --type=learning \
   --title="Never use raw SQL in agents" \
   --content="Agents struggle with SQL syntax. Always use CLI wrappers." \
   --project=abby-normal \
   --tags=Agent-UX,CLI
 ```
 
-Add a decision:
+Add another entry:
 ```bash
 memory-query add \
-  --type=decision \
   --title="Use SQLite over PostgreSQL for local-first" \
   --content="SQLite requires no server setup, perfect for local agent memory." \
   --project=abby-normal \
   --tags=Database,Architecture
 ```
 
-Add a pattern:
+Add a third entry:
 ```bash
 memory-query add \
-  --type=pattern \
   --title="Unified table with JSON metadata" \
-  --content="Single table + entry_type column + flexible JSON metadata = query simplicity." \
+  --content="Single table + flexible JSON metadata = query simplicity." \
   --project=abby-normal \
   --tags=Database,Pattern
 ```
 
-**Entry Types**: `learning`, `pattern`, `decision`, `pitfall`, `changelog`
+**Tags are optional** — entries can be added without tags.
 
 ## Database Schema
 
 ### memory_entries (Unified Memory)
 - `id`: Unique identifier (e.g., LEARN-20260320-123456-abc123)
-- `entry_type`: learning, pattern, decision, pitfall, changelog
 - `project_id`: Associated project (NULL for global)
 - `component_name`: Component within project (NULL for project-wide)
 - `title`: Short title
 - `content`: Full text content
-- `metadata`: JSON with flexible fields
-- `tags`: JSON array of tags
+- `metadata`: JSON with flexible fields (including optional tags)
 - `created_at`: Timestamp
 
 ### projects & components
@@ -111,14 +100,18 @@ memory-query add \
 ## Key Architectural Decisions
 
 **DEC-001**: Unified table over separate tables  
-Rationale: Agents don't know which table to query at runtime. One table + entry_type is simpler.  
+Rationale: Agents don't know which table to query at runtime. One table is simpler.  
 Tags: Database, Architecture, SQLite
 
-**DEC-002**: CLI wrapper over raw SQL  
+**DEC-002**: Untyped entries with optional tags  
+Rationale: Forced taxonomy (learning, pattern, decision, etc.) added friction without value. Entries are now just entries — tags are optional metadata for organization.  
+Tags: Database, Architecture, Simplification
+
+**DEC-003**: CLI wrapper over raw SQL  
 Rationale: Agents struggle with SQL syntax. Python CLI scripts provide clean interface.  
 Tags: CLI, Python, Agent-UX
 
-**DEC-003**: Skill-based over plugin-based orchestration  
+**DEC-004**: Skill-based over plugin-based orchestration  
 Rationale: Explicit control > magic automation. Agent consciously decides when to orchestrate.  
 Tags: OpenCode, Architecture, Skills
 
@@ -150,13 +143,13 @@ abby-normal/
 
 ```bash
 # Query
-memory-query search <query> [--type=X] [--project=Y] [--tags=a,b]
+memory-query search <query> [--project=Y] [--tags=a,b]
 memory-query project <project_id>
 memory-query active-projects
 memory-query vocabulary [--category=X]
 
 # Add
-memory-query add --type=X --title=Y --content=Z [--project=A] [--tags=b,c]
+memory-query add --title=Y --content=Z [--project=A] [--tags=b,c]
 
 # Orchestration (if using multi-agent features)
 orchestration create-session <project_id> "<description>" [--max-agents=N]
@@ -170,7 +163,7 @@ orchestration validate-wave <wave_id> <session_id> <project_id>
 1. **Start Session**: Query relevant memory
    ```bash
    memory-query search --project=abby-normal "current phase"
-   memory-query search --type=decision --tags=Architecture
+   memory-query search --tags=Architecture
    ```
 
 2. **During Session**: Reference as needed
@@ -178,9 +171,9 @@ orchestration validate-wave <wave_id> <session_id> <project_id>
    memory-query search "unified table"
    ```
 
-3. **End Session**: Add new learnings/decisions
+3. **End Session**: Add new entries
    ```bash
-   memory-query add --type=learning --title="..." --content="..." --project=abby-normal --tags=...
+   memory-query add --title="..." --content="..." --project=abby-normal --tags=...
    ```
 
 ## Integration with Other Projects
@@ -213,7 +206,7 @@ Test queries:
 ```bash
 memory-query search test
 memory-query project abby-normal
-memory-query search --type=learning --project=abby-normal
+memory-query search --project=abby-normal
 ```
 
 Verify FTS works:

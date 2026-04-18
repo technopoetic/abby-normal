@@ -24,24 +24,22 @@ ln -s ~/code/abby-normal/memory_query.py ~/.local/bin/memory-query
 ln -s ~/code/abby-normal/orchestration.py ~/.local/bin/orchestration
 
 # Add your projects
-memory-query add --type=learning --title="..." --content="..." --project=myproject
+memory-query add --title="..." --content="..." --project=myproject
 ```
 memory-query project mekanik
 
 # Add memory
-memory-query add --type=learning --title="..." --content="..." --project=mekanik --tags=Python
+memory-query add --title="..." --content="..." --project=mekanik --tags=Python
 ```
 
 ## Database
 
 Location: `~/.local/share/abby-normal/memory.db`
 
-Schema: Unified `memory_entries` table with entry_type column:
-- `learning` - Lessons learned
-- `pattern` - Reusable solutions
-- `decision` - Architectural/product decisions
-- `pitfall` - Common mistakes to avoid
-- `changelog` - Session history
+Schema: Unified `memory_entries` table with FTS search:
+- Entries have title, content, and metadata (tags stored in metadata)
+- No forced taxonomy — entries are simply entries
+- Tags are optional JSON metadata for organization
 
 ## Multi-Agent Orchestration
 
