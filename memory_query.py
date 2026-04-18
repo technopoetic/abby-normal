@@ -107,7 +107,7 @@ class MemoryQuery:
         # Tag filters (must match ALL tags)
         if tags:
             for tag in tags:
-                where_clauses.append("json_extract(m.tags, '$') LIKE ?")
+                where_clauses.append("json_extract(m.metadata, '$.tags') LIKE ?")
                 params.append(f'%"{tag}"%')
 
         if where_clauses:
