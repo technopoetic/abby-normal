@@ -1,243 +1,125 @@
 # abby-normal — Global Memory System for AI Agents
 
-*From Young Frankenstein: "Abby Normal" — the brain in a jar*
+*Named after the "Abby Normal" brain from Young Frankenstein.*
 
-## Current State
+## What This Is
 
-**Status**: Core Implementation Complete (v2.0)  
-**Phase**: Active — Testing and Documentation  
-**Location**: `/home/rhibbitts/code/abby-normal`  
+A SQLite-backed memory system for AI agents. Stores learnings, decisions, and patterns across projects with FTS search. Also includes an optional multi-agent orchestration layer.
 
-**What's Working**:
-- Unified `memory_entries` table with FTS search
-- CLI tools: `memory-query`, `orchestration`
-- Schema v2.0 (simplified from multiple tables)
-- Cross-project memory storage and retrieval
-- Orchestration system for multi-agent coordination
+## Setup
 
-## How to Use abby-normal
-
-### Query Memory (At Session Start)
-
-Search across all memory types:
 ```bash
-memory-query search <keyword>
-memory-query search authentication
-memory-query search "unified table"
+python3 ~/code/abby-normal/setup.py   # Creates ~/.local/share/abby-normal/memory.db
+
+# Symlinks for CLI access
+ln -s ~/code/abby-normal/memory_query.py ~/.local/bin/memory-query
+ln -s ~/code/abby-normal/orchestration.py ~/.local/bin/orchestration
+ln -s ~/code/abby-normal/migrate_fts.py ~/.local/bin/migrate-abby-fts
 ```
 
-Filter by project:
+Database lives at `~/.local/share/abby-normal/memory.db` — never delete it without explicit permission.
+
+The database is git-tracked in `~/.config/opencode/`. After sessions, commit it there:
 ```bash
-memory-query search --project=mekanik
-memory-query search --project=abby-normal testing
+cd ~/.config/opencode && git add memory.db && git commit -m "Session: ..."
 ```
 
-Filter by project:
+## Migrating an Existing Installation
+
+If you installed before the FTS upgrade (porter stemmer + BM25 ranking), run once:
 ```bash
-memory-query search --tags=Python,Testing
-memory-query search --project=mekanik --tags=API
+migrate-abby-fts
+# or: python3 ~/code/abby-normal/migrate_fts.py
 ```
 
-Get project details:
+Idempotent — safe to run multiple times. Only the FTS index is rebuilt; data is untouched.
+
+## CLI Commands
+
+### Search
 ```bash
-memory-query project mekanik
-memory-query project abby-normal
+memory-query search <query>                          # BM25-ranked, porter-stemmed
+memory-query search <query> --project=myproject      # Filter by project
+memory-query search <query> --tags=Python,Testing    # Filter by tags (must match ALL)
+memory-query search --project=myproject              # All entries for project (no query, date-ordered)
+memory-query search <query> --limit=50               # Default limit is 20
 ```
 
-### Add Memory (At Session End)
+**Search uses porter stemming** — `connect` matches `connection`, `connected`, `connecting`. Results
+are ordered by BM25 relevance. Each result includes:
+- `excerpt`: match context with matched terms in `[brackets]`
+- `bm25_score`: relevance score (more negative = more relevant)
 
-Add an entry:
+Filter-only searches (no query) return results ordered by `created_at` with no `excerpt`.
+
+**FTS5 query syntax** is supported when detected (AND/OR/NOT/NEAR/quotes/`*` present):
+```bash
+memory-query search "redis cache"            # phrase — adjacent words
+memory-query search 'redis OR keydb'         # either term
+memory-query search 'cache NOT redis'        # first without second
+memory-query search 'auth*'                  # prefix (use short prefixes — see note)
+memory-query search 'NEAR(redis cache, 5)'   # within 5 tokens of each other
+memory-query search 'title: migration'       # search specific column
+```
+
+> **Prefix + porter note**: the stemmer reduces words before indexing, so use short prefixes.
+> `auth*` matches `authentication`; `authenticat*` does not (the stem doesn't share that prefix).
+
+Otherwise, multi-word queries are treated as implicit AND — `redis cache` requires both terms.
+
+### Add
 ```bash
 memory-query add \
-  --title="Never use raw SQL in agents" \
-  --content="Agents struggle with SQL syntax. Always use CLI wrappers." \
-  --project=abby-normal \
-  --tags=Agent-UX,CLI
+  --title="Short title" \
+  --content="Full description" \
+  --project=myproject \        # Optional
+  --component=mycomponent \    # Optional, sub-project grouping
+  --tags=Tag1,Tag2             # Optional
 ```
 
-Add another entry:
+Entry IDs are auto-generated as `MEM-YYYYMMDD-HHMMSS-xxxxxx`. Do not supply IDs manually via CLI.
+
+### Other
 ```bash
-memory-query add \
-  --title="Use SQLite over PostgreSQL for local-first" \
-  --content="SQLite requires no server setup, perfect for local agent memory." \
-  --project=abby-normal \
-  --tags=Database,Architecture
-```
-
-Add a third entry:
-```bash
-memory-query add \
-  --title="Unified table with JSON metadata" \
-  --content="Single table + flexible JSON metadata = query simplicity." \
-  --project=abby-normal \
-  --tags=Database,Pattern
-```
-
-**Tags are optional** — entries can be added without tags.
-
-## Database Schema
-
-### memory_entries (Unified Memory)
-- `id`: Unique identifier (e.g., LEARN-20260320-123456-abc123)
-- `project_id`: Associated project (NULL for global)
-- `component_name`: Component within project (NULL for project-wide)
-- `title`: Short title
-- `content`: Full text content
-- `metadata`: JSON with flexible fields (including optional tags)
-- `created_at`: Timestamp
-
-### projects & components
-- Track project metadata and repository locations
-- Used for filtering and organization
-
-### Orchestration Tables (Separate System)
-- `orchestration_sessions`: Multi-agent runs
-- `waves`: Parallel agent batches
-- `agent_sessions`: Individual agent tracking
-- `interface_contracts`: Extracted type contracts
-- `contract_mismatches`: Validation failures
-
-## Key Architectural Decisions
-
-**DEC-001**: Unified table over separate tables  
-Rationale: Agents don't know which table to query at runtime. One table is simpler.  
-Tags: Database, Architecture, SQLite
-
-**DEC-002**: Untyped entries with optional tags  
-Rationale: Forced taxonomy (learning, pattern, decision, etc.) added friction without value. Entries are now just entries — tags are optional metadata for organization.  
-Tags: Database, Architecture, Simplification
-
-**DEC-003**: CLI wrapper over raw SQL  
-Rationale: Agents struggle with SQL syntax. Python CLI scripts provide clean interface.  
-Tags: CLI, Python, Agent-UX
-
-**DEC-004**: Skill-based over plugin-based orchestration  
-Rationale: Explicit control > magic automation. Agent consciously decides when to orchestrate.  
-Tags: OpenCode, Architecture, Skills
-
-## Critical Learnings
-
-**LEARN-001**: FTS search requires careful trigger setup  
-Virtual table + content table + triggers = working search. Easy to get wrong.
-
-**LEARN-002**: JSON fields enable schema flexibility  
-Without rigid columns, we can store varying metadata per entry type. Trade-off: less validation.
-
-**LEARN-003**: CLI commands must be discoverable  
-Agents need help text listing all available commands. Self-documenting CLI reduces errors.
-
-## File Structure
-
-```
-abby-normal/
-├── schema.sql              # Database schema
-├── memory_query.py         # Query CLI tool
-├── orchestration.py        # Orchestration CLI tool
-├── memory_export.py        # Export to JSON
-└── README.md               # Documentation
-
-~/.local/share/abby-normal/memory.db  # Actual database
-```
-
-## Commands Reference
-
-```bash
-# Query
-memory-query search <query> [--project=Y] [--tags=a,b]
-memory-query project <project_id>
-memory-query active-projects
+memory-query project <project_id>    # Project details + components
+memory-query active-projects         # All projects with status='active'
 memory-query vocabulary [--category=X]
+```
 
-# Add
-memory-query add --title=Y --content=Z [--project=A] [--tags=b,c]
+## Database Schema (key facts)
 
-# Orchestration (if using multi-agent features)
+- `memory_entries`: unified table for all knowledge — no forced type taxonomy
+- `metadata` column: JSON blob; tags stored as `metadata.tags` array
+- FTS via `memory_entries_fts` virtual table with triggers keeping it in sync
+- `projects` and `components` tables: for filtering and organization
+- Orchestration tables are separate (`orchestration_sessions`, `waves`, `agent_sessions`, etc.)
+
+## Orchestration (Optional)
+
+Wave-based multi-agent coordination. See `ORCHESTRATION_SETUP.md` for installation.
+
+Agent definitions live in `agents/` — copy them to `~/.config/opencode/agents/` to activate:
+```bash
+cp ~/code/abby-normal/agents/*.md ~/.config/opencode/agents/
+```
+
+```bash
+# CLI — orchestration.py (symlinked as `orchestration`)
 orchestration create-session <project_id> "<description>" [--max-agents=N]
 orchestration create-wave <session_id> <wave_number>
 orchestration create-agent <session_id> <wave_id> <name> <type> "<task>"
 orchestration validate-wave <wave_id> <session_id> <project_id>
 ```
 
-## Workflow
+In OpenCode: `Tab` to cycle agents → select Orchestrator, or `@orchestrator <task>`.
 
-1. **Start Session**: Query relevant memory
-   ```bash
-   memory-query search --project=abby-normal "current phase"
-   memory-query search --tags=Architecture
-   ```
+## Conventions
 
-2. **During Session**: Reference as needed
-   ```bash
-   memory-query search "unified table"
-   ```
-
-3. **End Session**: Add new entries
-   ```bash
-   memory-query add --title="..." --content="..." --project=abby-normal --tags=...
-   ```
-
-## Integration with Other Projects
-
-abby-normal stores memory for all projects. Each project has:
-- Entry in `projects` table
-- Components in `components` table
-- Memory entries tagged with `project_id`
-
-Query cross-project:
-```bash
-memory-query search "testing pattern"  # Searches all projects
-memory-query search --project=mekanik testing  # Specific project
-```
-
-## Git Workflow
-
-Database is at `~/.local/share/abby-normal/memory.db` and is git-tracked:
-```bash
-cd ~/.config/opencode
-git add memory.db
-git commit -m "Session N: Added learnings about X"
-```
-
-**Never delete memory.db** without explicit permission.
-
-## Testing
-
-Test queries:
-```bash
-memory-query search test
-memory-query project abby-normal
-memory-query search --project=abby-normal
-```
-
-Verify FTS works:
-```bash
-memory-query search "unified table beats separate"
-```
-
-## Next Steps
-
-- [ ] Plugin for automatic session-start loading (optional)
-- [ ] Migration from PROJECT-MEMORY.json for mekanik/lora
-- [ ] Enhanced tagging/tag suggestion
-- [ ] Memory compaction/archival for old entries
-
----
+- Tags are optional. Entries without tags are fully searchable via FTS.
+- Use `--project=` consistently — it's the primary grouping key across tools.
+- Agents should never use raw SQL; always go through the CLI wrappers.
+- The `memory-query` commands output JSON — pipe or parse accordingly.
 
 ## Personality
 
-**Young Frankenstein References**
-
-abby-normal is named after the "Abby Normal" brain from Young Frankenstein. When appropriate and relevant, toss in a Young Frankenstein quote or reference:
-
-- **"It's alive!"** — When something works for the first time
-- **"Abby... Normal"** — When discussing the name or brain references
-- **"Destiny! Destiny! No escaping that for me!"** — When discussing fate or inevitability
-- **"Could be worse, could be raining"** — When things go wrong (classic Igor line)
-- **"What hump?"** — When someone mentions a problem that seems obvious to you
-- **"Walk this way"** — When giving instructions (with Igor's limp implied)
-
-Use sparingly — only when it adds humor without being distracting. Keep it professional, just with a touch of Mel Brooks whimsy.
-
----
-
-**Note**: This AGENTS.md file is for the abby-normal project itself. Use `memory-query` commands above to interact with the system.
+When appropriate, toss in a Young Frankenstein reference. Use sparingly.

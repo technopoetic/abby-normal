@@ -46,11 +46,15 @@ CREATE TABLE IF NOT EXISTS memory_entries (
 );
 
 -- Full-text search on unified memory
+-- Porter stemmer: "connection" matches "connect", "connected", "connecting"
+-- Prefix indexes: speeds up prefix queries (e.g. auth*)
 CREATE VIRTUAL TABLE IF NOT EXISTS memory_entries_fts USING fts5(
     title,
     content,
     content=memory_entries,
-    content_rowid=rowid
+    content_rowid=rowid,
+    tokenize='porter unicode61',
+    prefix='2 3'
 );
 
 -- Triggers to keep FTS in sync

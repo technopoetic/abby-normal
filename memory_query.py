@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
 """
-Memory Query Helper for AI Agents - Simplified v2.0
+Memory Query Helper for AI Agents - v2.1
 
-Unified memory system with FTS search across all entry types.
+Unified memory system with FTS5 search across all entry types.
+
+Search uses porter stemming and BM25 relevance ranking:
+  - "connect" matches "connection", "connected", "connecting"
+  - Results ordered by relevance when a query is given, by date otherwise
+  - Search results include an "excerpt" field showing match context
+
+FTS5 query syntax is supported when detected in the query string:
+  - term1 term2        implicit AND (both required)
+  - term1 OR term2     either term
+  - term1 NOT term2    first without second
+  - "exact phrase"     adjacent phrase
+  - term*              prefix match (use short prefixes: auth* not authenticat*)
+  - NEAR(t1 t2, N)     within N tokens of each other
+  - col: term          search specific column (title or content)
 """
 
 import sqlite3
@@ -31,6 +45,42 @@ class MemoryQuery:
         """Convert Row objects to dictionaries."""
         return [dict(row) for row in rows]
 
+    def _build_fts_query(self, query: str) -> str:
+        """
+        Build an FTS5 query from user input.
+
+        If the query already contains FTS5 syntax operators, pass it through
+        unchanged — the caller knows what they're doing.
+
+        Otherwise, split on whitespace and quote any tokens that contain FTS5
+        special characters. Multiple tokens become an implicit AND.
+
+        Note on porter stemming + prefixes: use short prefixes (auth*, test*).
+        Mid-word prefixes like authenticat* won't match because the stemmer
+        reduces "authentication" to a stem that doesn't share that prefix.
+        """
+        stripped = query.strip()
+        upper = stripped.upper()
+
+        # Detect explicit FTS5 syntax — pass through unchanged
+        fts_operators = (" AND ", " OR ", " NOT ")
+        if (any(op in f" {upper} " for op in fts_operators) or
+                "NEAR(" in upper or
+                '"' in stripped or
+                stripped.endswith("*")):
+            return stripped
+
+        # Per-token escaping: wrap tokens containing special chars in quotes
+        special = set("():-^!")
+        tokens = stripped.split()
+        escaped = []
+        for token in tokens:
+            if any(c in token for c in special):
+                escaped.append(f'"{token}"')
+            else:
+                escaped.append(token)
+        return " ".join(escaped)  # implicit AND
+
     def get_project(self, project_id: str) -> Optional[Dict[str, Any]]:
         """Get project details by ID."""
         cursor = self.conn.execute(
@@ -43,7 +93,7 @@ class MemoryQuery:
         """Get all components for a project."""
         cursor = self.conn.execute(
             """
-            SELECT * FROM components 
+            SELECT * FROM components
             WHERE project_id = ?
             ORDER BY name
             """,
@@ -55,7 +105,7 @@ class MemoryQuery:
         """Get all active projects."""
         cursor = self.conn.execute(
             """
-            SELECT * FROM projects 
+            SELECT * FROM projects
             WHERE status = 'active'
             ORDER BY last_active DESC
             """
@@ -72,39 +122,98 @@ class MemoryQuery:
     ) -> List[Dict[str, Any]]:
         """
         Search memory entries with optional filters.
-        
-        This searches across ALL memory types (learnings, patterns, decisions, etc.)
-        
+
+        When a query is given, results are ranked by BM25 relevance and each
+        result includes an "excerpt" field with match context (matches wrapped
+        in square brackets).
+
+        When no query is given (filter-only), results are ordered by
+        created_at descending. No excerpt is included.
+
         Args:
-            query: Full-text search query
+            query: Full-text search query. Supports FTS5 syntax when detected.
             project_id: Filter by project
             component_name: Filter by component
-            tags: Filter by tags (must have ALL specified tags)
-            limit: Max results to return
+            tags: Filter by tags (entry must have ALL specified tags)
+            limit: Max results to return (default 20)
         """
-        sql = "SELECT m.* FROM memory_entries m"
-        where_clauses = []
-        params = []
-
-        # FTS search - escape special characters by wrapping in quotes
         if query:
-            sql += " JOIN memory_entries_fts fts ON m.rowid = fts.rowid"
-            where_clauses.append("memory_entries_fts MATCH ?")
-            # Escape special FTS characters (hyphens, etc.) by wrapping in quotes
-            escaped_query = f'"{query}"'
-            params.append(escaped_query)
+            return self._search_with_fts(query, project_id, component_name, tags, limit)
+        else:
+            return self._search_without_fts(project_id, component_name, tags, limit)
 
-        # Project filter
+    def _search_with_fts(
+        self,
+        query: str,
+        project_id: Optional[str],
+        component_name: Optional[str],
+        tags: Optional[List[str]],
+        limit: int,
+    ) -> List[Dict[str, Any]]:
+        """
+        FTS-driven search: BM25 relevance ranking + excerpt.
+
+        The FTS table is the primary driver so bm25() and snippet() work.
+        memory_entries is joined to retrieve project_id, metadata, etc.
+
+        snippet() uses column -1 (auto-select best column for match context).
+        Matched terms are wrapped in square brackets in the excerpt.
+        """
+        fts_query = self._build_fts_query(query)
+
+        sql = """
+            SELECT m.id, m.project_id, m.component_name, m.title, m.content,
+                   m.metadata, m.created_at,
+                   bm25(memory_entries_fts) AS bm25_score,
+                   snippet(memory_entries_fts, -1, '[', ']', '...', 20) AS excerpt
+            FROM memory_entries_fts
+            JOIN memory_entries m ON m.rowid = memory_entries_fts.rowid
+            WHERE memory_entries_fts MATCH ?
+        """
+        params: List[Any] = [fts_query]
+
+        if project_id:
+            sql += " AND m.project_id = ?"
+            params.append(project_id)
+
+        if component_name:
+            sql += " AND m.component_name = ?"
+            params.append(component_name)
+
+        if tags:
+            for tag in tags:
+                sql += " AND json_extract(m.metadata, '$.tags') LIKE ?"
+                params.append(f'%"{tag}"%')
+
+        sql += " ORDER BY memory_entries_fts.rank LIMIT ?"
+        params.append(limit)
+
+        cursor = self.conn.execute(sql, params)
+        return self._rows_to_dicts(cursor.fetchall())
+
+    def _search_without_fts(
+        self,
+        project_id: Optional[str],
+        component_name: Optional[str],
+        tags: Optional[List[str]],
+        limit: int,
+    ) -> List[Dict[str, Any]]:
+        """
+        Filter-only search (no query): ordered by created_at descending.
+        No BM25 ranking or excerpt — can't compute those without a MATCH.
+        """
+        sql = "SELECT * FROM memory_entries m"
+        where_clauses = []
+        params: List[Any] = []
+
         if project_id:
             where_clauses.append("m.project_id = ?")
             params.append(project_id)
 
-        # Component filter
         if component_name:
             where_clauses.append("m.component_name = ?")
             params.append(component_name)
 
-        # Tag filters (must match ALL tags)
         if tags:
             for tag in tags:
                 where_clauses.append("json_extract(m.metadata, '$.tags') LIKE ?")
@@ -126,29 +235,28 @@ class MemoryQuery:
         content: str,
         project_id: Optional[str] = None,
         component_name: Optional[str] = None,
-            metadata: Optional[Dict] = None,
-            tags: Optional[List[str]] = None,
-        ):
+        metadata: Optional[Dict] = None,
+        tags: Optional[List[str]] = None,
+    ):
         """
         Add a new memory entry.
-        
+
         Args:
-            entry_id: Unique ID (e.g., 'LEARN-002', 'PATTERN-003')
+            entry_id: Unique ID (auto-generated by CLI as MEM-YYYYMMDD-HHMMSS-xxxxxx)
             title: Short title
             content: Full content/description
             project_id: Associated project (optional)
             component_name: Associated component (optional)
-            metadata: Flexible JSON metadata (tags can be included here)
-            tags: List of tags (will be merged into metadata if provided)
+            metadata: Flexible JSON metadata
+            tags: List of tags (merged into metadata)
         """
-        # Merge tags into metadata if both are provided
         final_metadata = metadata.copy() if metadata else {}
         if tags:
-            final_metadata['tags'] = tags
-        
+            final_metadata["tags"] = tags
+
         self.conn.execute(
             """
-            INSERT INTO memory_entries 
+            INSERT INTO memory_entries
             (id, project_id, component_name, title, content, metadata)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
@@ -167,7 +275,7 @@ class MemoryQuery:
         """Add a new term to controlled vocabulary."""
         self.conn.execute(
             """
-            INSERT OR IGNORE INTO vocabulary (category, term) 
+            INSERT OR IGNORE INTO vocabulary (category, term)
             VALUES (?, ?)
             """,
             (category, term),
@@ -198,13 +306,16 @@ def main():
         print("  project <project_id>")
         print("  active-projects")
         print("  vocabulary [--category=X]")
+        print()
+        print("Search uses porter stemming + BM25 ranking.")
+        print("FTS5 syntax supported: AND, OR, NOT, NEAR(t1 t2,N), term*, \"phrase\"")
+        print("Results include 'excerpt' (match context) and 'bm25_score' when a query is given.")
         sys.exit(1)
 
     command = sys.argv[1]
 
     with MemoryQuery() as mq:
         if command == "search":
-            # Parse arguments
             query = None
             project_id = None
             tags = None
@@ -232,7 +343,6 @@ def main():
             print(json.dumps(results, indent=2))
 
         elif command == "add":
-            # Parse arguments
             title = None
             content = None
             project_id = None
@@ -258,12 +368,10 @@ def main():
                 print("Error: --title and --content are required")
                 sys.exit(1)
 
-            # Generate entry ID
             import random
             import string
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
-            
+            suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
             entry_id = f"MEM-{timestamp}-{suffix}"
 
             mq.add_memory_entry(

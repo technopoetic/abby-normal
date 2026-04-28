@@ -3,8 +3,9 @@
 *.db-journal
 *.db-wal
 
-# personal files
+# personal files — one-off data migration scripts
 migrate*
+!migrate_fts.py
 seed_database.py
 
 # Python cache
