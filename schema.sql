@@ -194,6 +194,18 @@ CREATE INDEX IF NOT EXISTS idx_mismatches_wave ON contract_mismatches(wave_id);
 CREATE INDEX IF NOT EXISTS idx_mismatches_status ON contract_mismatches(status);
 
 -- ============================================
+-- VECTOR EMBEDDINGS (semantic search via sqlite-vec)
+-- Requires: pysqlite3-binary, sqlite-vec, sentence-transformers
+-- Created through embeddings.py / backfill_embeddings.py
+-- ============================================
+
+-- NOTE: The vec0 virtual table is created dynamically by Python code
+-- because sqlite-vec must be loaded as an extension first.
+-- See: ensure_vec_table() in embeddings.py
+-- Table structure: CREATE VIRTUAL TABLE memory_embeddings USING vec0(embedding float[384])
+-- Columns: rowid (matches memory_entries.rowid), embedding (float[384])
+
+-- ============================================
 -- VOCABULARY (controlled terms)
 -- ============================================
 

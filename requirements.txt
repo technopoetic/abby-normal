@@ -1,0 +1,7 @@
+# abby-normal core (always required)
+# No external Python dependencies — uses stdlib sqlite3
+
+# Vector search (optional, for semantic/hybrid search)
+pysqlite3-binary>=0.5.0
+sqlite-vec>=0.1.6
+sentence-transformers>=3.0.0
