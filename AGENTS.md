@@ -154,6 +154,26 @@ orchestration validate-wave <wave_id> <session_id> <project_id>
 
 In OpenCode: `Tab` to cycle agents → select Orchestrator, or `@orchestrator <task>`.
 
+## Automatic Hooks (Preferred)
+
+Both Claude Code and OpenCode now load memories automatically — no manual session-start search needed.
+
+**Claude Code** (`~/.claude/settings.json`):
+- `SessionStart` command hook runs `hooks/session_start.py`, which queries `search-hybrid <project>` and injects results as `additionalContext`
+- `Stop` prompt hook nudges Claude to save learnings at turn end
+
+**OpenCode** (`~/.config/opencode/plugins/abby-normal.js`):
+- `experimental.chat.messages.transform` injects memories into the first user message of each session
+- `experimental.session.compacting` re-injects at context compaction
+- `abby_recall` and `abby_save` tools are available for explicit memory operations
+
+**Project detection**: Both hooks derive the project ID from the working directory basename, mapped via `PROJECT_MAP` in each file. Project name is used as a boost term in hybrid search — not a hard filter — so cross-project memories surface when relevant.
+
+If hooks aren't active (or you want to search manually):
+```bash
+memory-query search-hybrid <project-or-keyword>
+```
+
 ## Key Architectural Decisions
 
 **DEC-001**: Unified table over separate tables

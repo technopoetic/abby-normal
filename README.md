@@ -79,6 +79,83 @@ Schema:
 - `sqlite-vec` — Vector similarity search
 - `sentence-transformers` — Local embedding model (all-MiniLM-L6-v2, ~80MB)
 
+## Automatic Integration via Hooks
+
+abby-normal can inject memories automatically at session start — no manual `memory-query search` needed.
+
+### Claude Code
+
+Add to `~/.claude/settings.json`:
+
+```json
+"hooks": {
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "/path/to/abby-normal/.venv/bin/python3",
+          "args": ["/path/to/abby-normal/hooks/session_start.py"],
+          "timeout": 15,
+          "statusMessage": "Loading memories..."
+        }
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "If this session produced any new learnings worth keeping — a decision, a pattern, a gotcha — save them now with `memory-query add --title=... --content=... --project=...` before stopping. Skip if nothing new happened this turn.",
+          "timeout": 30
+        }
+      ]
+    }
+  ]
+}
+```
+
+`hooks/session_start.py` reads the current working directory, derives the project name, runs `search-hybrid` with the project as a boost term (not a hard filter), and returns the results as `additionalContext`. Cross-project memories surface when semantically relevant.
+
+### OpenCode
+
+Place `hooks/abby-normal.js` in `~/.config/opencode/plugins/` — it auto-loads at startup.
+
+Requires `@opencode-ai/plugin` in `~/.config/opencode/package.json`:
+
+```json
+{ "dependencies": { "@opencode-ai/plugin": "^1.4.0" } }
+```
+
+The plugin provides:
+- **`experimental.chat.messages.transform`** — injects relevant memories into the first user message of each session (equivalent to Claude Code's `additionalContext`)
+- **`experimental.session.compacting`** — re-injects memories at context compaction so they survive compression
+- **`abby_recall` tool** — Claude can search memories explicitly: `abby_recall({ query: "mekanik stripe" })`
+- **`abby_save` tool** — Claude can save memories explicitly: `abby_save({ title, content, project })`
+
+### Project name mapping
+
+Both hooks derive a project ID from the directory basename. Edit the `PROJECT_MAP` in either file to add your projects:
+
+```python
+# hooks/session_start.py
+PROJECT_MAP = {
+    "mekanik": "mekanik",
+    "mekanik_vue": "mekanik",   # multiple dirs → same project ID
+    "lora": "lora",
+}
+```
+
+```javascript
+// hooks/abby-normal.js (OpenCode plugin)
+const PROJECT_MAP = {
+  "mekanik": "mekanik",
+  "mekanik_vue": "mekanik",
+  "lora": "lora",
+}
+```
+
 ## Files
 
 ```
@@ -90,6 +167,9 @@ abby-normal/
 ├── orchestration.py        # Multi-agent coordination
 ├── memory_export.py        # Export to JSON
 ├── requirements.txt        # Python dependencies
+├── hooks/
+│   ├── session_start.py    # Claude Code SessionStart hook
+│   └── abby-normal.js      # OpenCode plugin
 └── README.md               # This file
 ```
 
