@@ -12,23 +12,16 @@ import path from "path"
 
 const SENTINEL = "<!-- abby-normal -->"
 
-// Map directory basenames to canonical project IDs
-const PROJECT_MAP = {
-  "mekanik": "mekanik",
-  "mekanik_vue": "mekanik",
-  "mekanik_registration": "mekanik",
-  "lora": "lora",
-  "banking_software": "lora",
-  "abby-normal": "abby-normal",
-  "codegraph": "codegraph",
-}
-
 export const AbbyNormalPlugin = async ({ $, directory }) => {
   const dirname = path.basename(directory)
-  const project = PROJECT_MAP[dirname] ?? dirname
+  let project = dirname
+  try {
+    const resolved = await $`memory-query resolve-project ${dirname}`.text()
+    if (resolved.trim()) project = resolved.trim()
+  } catch (_) {}
 
   async function queryMemories(query, limit = 5) {
-    const result = await $`memory-query search-hybrid ${query} --limit=${String(limit)}`.text()
+    const result = await $`memory-query search ${query} --limit=${String(limit)}`.text()
     return result.trim()
   }
 

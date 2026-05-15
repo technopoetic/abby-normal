@@ -32,31 +32,28 @@ python3 backfill_embeddings.py
 ln -s ~/code/abby-normal/memory_query.py ~/.local/bin/memory-query
 ln -s ~/code/abby-normal/orchestration.py ~/.local/bin/orchestration
 
-# Search (keyword)
+# Search (auto-selects hybrid or FTS-only based on available dependencies)
 memory-query search authentication
-
-# Search (semantic — finds entries about login, OAuth, session tokens too)
-memory-query search-semantic "how to handle user authentication"
-
-# Search (hybrid — best of both)
-memory-query search-hybrid "Stripe webhook error handling"
+memory-query search "Stripe webhook error handling"
 
 # Add memory
 memory-query add --title="..." --content="..." --project=myproject --tags=Python
 ```
 
-## Search Types
+## Search
 
-| Type | How it works | Best for |
-|------|-------------|----------|
-| `search` | FTS5 keyword matching | Exact terms, proper nouns, specific words |
-| `search-semantic` | Vector similarity (384-dim embeddings) | Conceptual matches, different words same meaning |
-| `search-hybrid` | FTS5 + semantic combined | General queries — the default you should reach for |
+A single `search` command that automatically uses the best strategy available:
 
-Example: `search-hybrid "payment failure handling"` finds:
-- Entries containing "payment" or "failure" (FTS5)
-- Entries about "Stripe webhook errors", "credit card retry logic" (semantic)
-- Entries found by **both** get a ranking boost (hybrid bonus)
+- **With sqlite-vec installed**: hybrid FTS5 + semantic search (keyword matches AND meaning-based matches)
+- **Without sqlite-vec**: FTS5 keyword search only
+
+Recent memories get a ranking boost (+0.2 for last 7 days, +0.1 for last 30 days).
+
+```bash
+memory-query search "payment failure handling"
+```
+
+This finds entries containing "payment" or "failure" (FTS5) **and** entries about "Stripe webhook errors" or "credit card retry logic" (semantic), with entries found by both getting a ranking boost.
 
 ## Database
 
@@ -116,7 +113,7 @@ Add to `~/.claude/settings.json`:
 }
 ```
 
-`hooks/session_start.py` reads the current working directory, derives the project name, runs `search-hybrid` with the project as a boost term (not a hard filter), and returns the results as `additionalContext`. Cross-project memories surface when semantically relevant.
+`hooks/session_start.py` reads the current working directory, resolves the project name via aliases, runs `search` with the project as a boost term, and returns the results as `additionalContext`. Cross-project memories surface when semantically relevant.
 
 ### OpenCode
 
@@ -136,25 +133,23 @@ The plugin provides:
 
 ### Project name mapping
 
-Both hooks derive a project ID from the directory basename. Edit the `PROJECT_MAP` in either file to add your projects:
+Both hooks derive a project ID from the current directory basename. By default, the basename is used as-is (e.g., working in `~/code/myapp` searches for "myapp").
 
-```python
-# hooks/session_start.py
-PROJECT_MAP = {
-    "mekanik": "mekanik",
-    "mekanik_vue": "mekanik",   # multiple dirs → same project ID
-    "lora": "lora",
-}
+For projects spanning multiple directories, add aliases:
+
+```bash
+# Map multiple directories to one project
+memory-query alias add myapp-frontend myapp
+memory-query alias add myapp-api myapp
+
+# List aliases
+memory-query alias list
+
+# Remove an alias
+memory-query alias remove myapp-frontend
 ```
 
-```javascript
-// hooks/abby-normal.js (OpenCode plugin)
-const PROJECT_MAP = {
-  "mekanik": "mekanik",
-  "mekanik_vue": "mekanik",
-  "lora": "lora",
-}
-```
+Aliases are stored in the abby-normal database, not in source files.
 
 ## Files
 

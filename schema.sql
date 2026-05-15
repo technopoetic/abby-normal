@@ -29,6 +29,11 @@ CREATE TABLE IF NOT EXISTS components (
     UNIQUE(project_id, name)
 );
 
+CREATE TABLE IF NOT EXISTS project_aliases (
+    dirname TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL
+);
+
 -- ============================================
 -- UNIFIED MEMORY SYSTEM
 -- All knowledge entries in one table with FTS

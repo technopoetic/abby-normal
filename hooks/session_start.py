@@ -2,11 +2,9 @@
 """
 Claude Code / OpenCode SessionStart hook.
 
-Reads session context from stdin, queries abby-normal for relevant memories,
-and returns them as additionalContext so agents start every session informed.
-
-Project name is used as a search term (not a hard --project= filter) so BM25
-naturally boosts project-relevant entries while cross-project memories still surface.
+Reads session context from stdin, resolves the working directory to a project
+via abby-normal aliases, queries for relevant memories, and returns them as
+additionalContext so agents start every session informed.
 """
 
 import json
@@ -17,16 +15,14 @@ import sys
 MEMORY_QUERY = os.path.expanduser("~/code/abby-normal/.venv/bin/python3")
 MEMORY_SCRIPT = os.path.expanduser("~/code/abby-normal/memory_query.py")
 
-# Map directory basenames to canonical project IDs used in memory entries
-PROJECT_MAP = {
-    "mekanik": "mekanik",
-    "mekanik_vue": "mekanik",
-    "mekanik_registration": "mekanik",
-    "lora": "lora",
-    "banking_software": "lora",
-    "abby-normal": "abby-normal",
-    "codegraph": "codegraph",
-}
+
+def _run_memory_query(*args):
+    return subprocess.run(
+        [MEMORY_QUERY, MEMORY_SCRIPT, *args],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "ABBY_NORMAL_IN_VENV": "1"},
+    )
 
 
 def main():
@@ -37,14 +33,17 @@ def main():
 
     cwd = data.get("cwd", "")
     dirname = os.path.basename(cwd.rstrip("/"))
-    project = PROJECT_MAP.get(dirname, dirname)
 
-    result = subprocess.run(
-        [MEMORY_QUERY, MEMORY_SCRIPT, "search-hybrid", project, "--limit=5"],
-        capture_output=True,
-        text=True,
-        env={**os.environ, "ABBY_NORMAL_IN_VENV": "1"},
-    )
+    try:
+        resolve = _run_memory_query("resolve-project", dirname)
+        project = resolve.stdout.strip() if resolve.returncode == 0 and resolve.stdout.strip() else dirname
+    except (OSError, FileNotFoundError):
+        project = dirname
+
+    try:
+        result = _run_memory_query("search", project, "--limit=5")
+    except (OSError, FileNotFoundError):
+        sys.exit(0)
 
     if result.returncode != 0 or not result.stdout.strip():
         sys.exit(0)

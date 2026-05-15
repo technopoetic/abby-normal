@@ -72,6 +72,10 @@ class MemoryQuery:
         self.db_path = db_path
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS project_aliases "
+            "(dirname TEXT PRIMARY KEY, project_id TEXT NOT NULL)"
+        )
         # Will be lazily created if needed for vector ops
         self._vec_conn = None
         # Embedding model (lazy)
@@ -186,6 +190,36 @@ class MemoryQuery:
         return self._rows_to_dicts(cursor.fetchall())
 
     # ============================================
+    # PROJECT ALIASES
+    # ============================================
+
+    def resolve_project(self, dirname: str) -> str:
+        row = self.conn.execute(
+            "SELECT project_id FROM project_aliases WHERE dirname = ?", (dirname,)
+        ).fetchone()
+        return row[0] if row else dirname
+
+    def add_alias(self, dirname: str, project_id: str) -> None:
+        self.conn.execute(
+            "INSERT OR REPLACE INTO project_aliases (dirname, project_id) VALUES (?, ?)",
+            (dirname, project_id),
+        )
+        self.conn.commit()
+
+    def remove_alias(self, dirname: str) -> bool:
+        cursor = self.conn.execute(
+            "DELETE FROM project_aliases WHERE dirname = ?", (dirname,)
+        )
+        self.conn.commit()
+        return cursor.rowcount > 0
+
+    def list_aliases(self) -> List[Dict[str, str]]:
+        cursor = self.conn.execute(
+            "SELECT dirname, project_id FROM project_aliases ORDER BY project_id, dirname"
+        )
+        return [{"dirname": r[0], "project_id": r[1]} for r in cursor.fetchall()]
+
+    # ============================================
     # FTS SEARCH (v2.1: porter stemmer, BM25, snippets)
     # ============================================
 
@@ -266,7 +300,24 @@ class MemoryQuery:
         params.append(limit)
 
         cursor = self.conn.execute(sql, params)
-        return self._rows_to_dicts(cursor.fetchall())
+        results = self._rows_to_dicts(cursor.fetchall())
+
+        # Apply recency boost and re-rank
+        now = datetime.now()
+        for entry in results:
+            score = entry.get("bm25_score", 0.0) or 0.0
+            try:
+                age_days = (now - datetime.fromisoformat(entry["created_at"])).days
+                if age_days <= 7:
+                    score -= 0.2  # bm25 scores are negative (lower = better)
+                elif age_days <= 30:
+                    score -= 0.1
+            except (ValueError, TypeError, KeyError):
+                pass
+            entry["bm25_score"] = score
+        results.sort(key=lambda e: e.get("bm25_score", 0.0) or 0.0)
+
+        return results
 
     def _search_without_fts(
         self,
@@ -467,6 +518,7 @@ class MemoryQuery:
                 }
 
         # Compute combined score
+        now = datetime.now()
         for eid, c in candidates.items():
             c["combined_score"] = (
                 semantic_weight * c["semantic_score"] + fts_weight * c["fts_score"]
@@ -474,6 +526,15 @@ class MemoryQuery:
             # Bonus for appearing in both result sets
             if c["fts_score"] > 0 and c["semantic_score"] > 0:
                 c["combined_score"] += 0.15
+            # Recency boost
+            try:
+                age_days = (now - datetime.fromisoformat(c["created_at"])).days
+                if age_days <= 7:
+                    c["combined_score"] += 0.2
+                elif age_days <= 30:
+                    c["combined_score"] += 0.1
+            except (ValueError, TypeError, KeyError):
+                pass
 
         # Sort by combined score
         ranked = sorted(candidates.values(), key=lambda e: e["combined_score"], reverse=True)
@@ -640,11 +701,9 @@ def main():
 
     with MemoryQuery() as mq:
         if command == "search":
-            _cmd_search(mq)
-        elif command == "search-semantic":
-            _cmd_search_semantic(mq)
-        elif command == "search-hybrid":
-            _cmd_search_hybrid(mq)
+            _cmd_unified_search(mq)
+        elif command in ("search-semantic", "search-hybrid"):
+            _cmd_unified_search(mq)
         elif command == "add":
             _cmd_add(mq)
         elif command == "delete":
@@ -655,6 +714,10 @@ def main():
             _cmd_active_projects(mq)
         elif command == "vocabulary":
             _cmd_vocabulary(mq)
+        elif command == "alias":
+            _cmd_alias(mq)
+        elif command == "resolve-project":
+            _cmd_resolve_project(mq)
         else:
             print(f"Unknown command: {command}")
             _print_help()
@@ -664,21 +727,23 @@ def main():
 def _print_help():
     print("Usage: memory_query.py <command> [args...]")
     print()
-    print("Search commands:")
+    print("Search:")
     print("  search <query> [--project=Y] [--tags=a,b,c] [--limit=N]")
-    print("    Full-text keyword search (porter stemmer, BM25 ranking, snippets)")
+    print("    Hybrid FTS + semantic search (falls back to FTS-only if sqlite-vec unavailable)")
     print()
-    print("  search-semantic <query> [--project=Y] [--tags=a,b] [--limit=N] [--threshold=F]")
-    print("    Semantic similarity search (find by meaning, not just words)")
-    print()
-    print("  search-hybrid <query> [--project=Y] [--tags=a,b] [--limit=N]")
-    print("    Combined FTS + semantic search (best of both worlds)")
-    print()
-    print("Other commands:")
+    print("Memory:")
     print("  add --title=Y --content=Z [--project=A] [--component=B] [--tags=c,d] [--no-embed]")
     print("  delete <entry_id>")
-    print("  project <project_id>")
-    print("  active-projects")
+    print()
+    print("Projects:")
+    print("  alias list                              List all directory-to-project aliases")
+    print("  alias add <dirname> <project-id>        Map a directory to a project")
+    print("  alias remove <dirname>                  Remove an alias")
+    print("  resolve-project <dirname>               Resolve dirname to project ID")
+    print("  project <project_id>                    Show project details")
+    print("  active-projects                         List active projects")
+    print()
+    print("Other:")
     print("  vocabulary [--category=X]")
     print()
     print("FTS5 syntax supported: AND, OR, NOT, NEAR(t1 t2,N), term*, \"phrase\"")
@@ -710,53 +775,25 @@ def _parse_common_args() -> Dict[str, Any]:
     return {"query": query, "project_id": project_id, "tags": tags, "limit": limit}
 
 
-def _cmd_search(mq: MemoryQuery):
+def _cmd_unified_search(mq: MemoryQuery):
     args = _parse_common_args()
-    results = mq.search_memory(
-        query=args["query"],
-        project_id=args["project_id"],
-        tags=args["tags"],
-        limit=args["limit"] or 20,
-    )
-    print(json.dumps(results, indent=2, default=str))
+    limit = args["limit"] or 10
 
+    if args["query"] and _VEC_AVAILABLE:
+        results = mq.search_hybrid(
+            query=args["query"],
+            project_id=args["project_id"],
+            tags=args["tags"],
+            limit=limit,
+        )
+    else:
+        results = mq.search_memory(
+            query=args["query"],
+            project_id=args["project_id"],
+            tags=args["tags"],
+            limit=limit,
+        )
 
-def _cmd_search_semantic(mq: MemoryQuery):
-    args = _parse_common_args()
-
-    # Parse threshold
-    threshold = 1.2
-    for arg in sys.argv[2:]:
-        if arg.startswith("--threshold="):
-            threshold = float(arg.split("=", 1)[1])
-
-    if not args["query"]:
-        print("Error: search-semantic requires a query")
-        sys.exit(1)
-
-    results = mq.search_semantic(
-        query=args["query"],
-        project_id=args["project_id"],
-        tags=args["tags"],
-        limit=args["limit"] or 10,
-        distance_threshold=threshold,
-    )
-    print(json.dumps(results, indent=2, default=str))
-
-
-def _cmd_search_hybrid(mq: MemoryQuery):
-    args = _parse_common_args()
-
-    if not args["query"]:
-        print("Error: search-hybrid requires a query")
-        sys.exit(1)
-
-    results = mq.search_hybrid(
-        query=args["query"],
-        project_id=args["project_id"],
-        tags=args["tags"],
-        limit=args["limit"] or 10,
-    )
     print(json.dumps(results, indent=2, default=str))
 
 
@@ -833,6 +870,37 @@ def _cmd_project(mq: MemoryQuery):
 def _cmd_active_projects(mq: MemoryQuery):
     projects = mq.get_active_projects()
     print(json.dumps(projects, indent=2))
+
+
+def _cmd_alias(mq: MemoryQuery):
+    subcmd = sys.argv[2] if len(sys.argv) > 2 else "list"
+
+    if subcmd == "list":
+        print(json.dumps(mq.list_aliases(), indent=2))
+    elif subcmd == "add":
+        if len(sys.argv) < 5:
+            print("Usage: alias add <dirname> <project-id>")
+            sys.exit(1)
+        dirname, project_id = sys.argv[3], sys.argv[4]
+        mq.add_alias(dirname, project_id)
+        print(json.dumps({"dirname": dirname, "project_id": project_id, "status": "added"}))
+    elif subcmd == "remove":
+        if len(sys.argv) < 4:
+            print("Usage: alias remove <dirname>")
+            sys.exit(1)
+        removed = mq.remove_alias(sys.argv[3])
+        print(json.dumps({"dirname": sys.argv[3], "removed": removed}))
+    else:
+        print(f"Unknown alias subcommand: {subcmd}")
+        print("Usage: alias [list | add <dirname> <project-id> | remove <dirname>]")
+        sys.exit(1)
+
+
+def _cmd_resolve_project(mq: MemoryQuery):
+    if len(sys.argv) < 3:
+        print("Error: dirname required")
+        sys.exit(1)
+    print(mq.resolve_project(sys.argv[2]))
 
 
 def _cmd_vocabulary(mq: MemoryQuery):
