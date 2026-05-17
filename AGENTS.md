@@ -44,48 +44,17 @@ python3 ~/code/abby-normal/backfill_embeddings.py --dry-run    # Preview first
 
 ### Search
 
-Three search modes:
+**`search`** — the only command you need. Auto-selects:
+- Hybrid (FTS5 + semantic) if sqlite-vec is available
+- FTS-only if sqlite-vec is not available
 
-**Keyword search** — FTS5 with porter stemming and BM25 ranking:
 ```bash
-memory-query search <query>                          # BM25-ranked, porter-stemmed
-memory-query search <query> --project=myproject      # Filter by project
-memory-query search <query> --tags=Python,Testing    # Filter by tags (must match ALL)
-memory-query search --project=myproject              # All entries for project (no query, date-ordered)
+memory-query search <query>                          # Default search
+memory-query search <query> --project=myproject     # Filter by project
+memory-query search <query> --tags=Python,Testing   # Filter by tags (must match ALL)
+memory-query search --project=myproject             # All entries for project (no query, date-ordered)
 memory-query search <query> --limit=50               # Default limit is 20
 ```
-
-**Semantic search** — finds entries by meaning, not just keywords:
-```bash
-memory-query search-semantic "how to handle payment failures"
-memory-query search-semantic "database schema" --project=mekanik
-memory-query search-semantic "testing strategy" --tags=Python --limit=5
-memory-query search-semantic "async pattern" --threshold=1.0  # Stricter matching
-```
-
-**Hybrid search** — combines FTS + semantic (the default you should reach for):
-```bash
-memory-query search-hybrid "Stripe webhook error handling"
-memory-query search-hybrid "database migration" --project=abby-normal
-memory-query search-hybrid "async pattern" --limit=10
-```
-
-Filter by project or tags works with all three search types.
-
-### Search Details
-
-**Keyword search** uses porter stemming — `connect` matches `connection`, `connected`, `connecting`. Results
-are ordered by BM25 relevance. Each result includes:
-- `excerpt`: match context with matched terms in `[brackets]`
-- `bm25_score`: relevance score (more negative = more relevant)
-
-Filter-only searches (no query) return results ordered by `created_at` with no `excerpt`.
-
-**Semantic search** uses vector similarity (384-dim embeddings via all-MiniLM-L6-v2). Results include:
-- `semantic_distance`: 0 = identical meaning, ~1.0 = typical match, >1.5 = unrelated
-
-**Hybrid search** combines both: FTS finds exact keyword matches, semantic finds conceptual matches.
-Entries found by both get a ranking boost. This is the search to use by default.
 
 **FTS5 query syntax** is supported when detected (AND/OR/NOT/NEAR/quotes/`*` present):
 ```bash
@@ -101,6 +70,12 @@ memory-query search 'title: migration'       # search specific column
 > `auth*` matches `authentication`; `authenticat*` does not (the stem doesn't share that prefix).
 
 Otherwise, multi-word queries are treated as implicit AND — `redis cache` requires both terms.
+
+Results are ordered by BM25 relevance when a query is given. Each result includes:
+- `excerpt`: match context with matched terms in `[brackets]`
+- `bm25_score`: relevance score (more negative = more relevant)
+
+Filter-only searches (no query) return results ordered by `created_at` with no `excerpt`.
 
 ### Add
 ```bash
@@ -223,7 +198,8 @@ sqlite-vec queries use `WHERE embedding MATCH ?` not `WHERE embedding = ?`. The 
 - Use `--project=` consistently — it's the primary grouping key across tools.
 - Agents should never use raw SQL; always go through the CLI wrappers.
 - The `memory-query` commands output JSON — pipe or parse accordingly.
-- Use `search-hybrid` as your default search — it combines the best of FTS and semantic.
+- Use `search` as your default — it auto-selects hybrid or FTS-only based on availability.
+- For agent guidance on when to use memory-query: `memory-query --agent`
 
 ## Requirements
 

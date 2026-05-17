@@ -702,6 +702,8 @@ def main():
     with MemoryQuery() as mq:
         if command == "search":
             _cmd_unified_search(mq)
+        elif command == "--agent":
+            _print_agent_help()
         elif command in ("search-semantic", "search-hybrid"):
             _cmd_unified_search(mq)
         elif command == "add":
@@ -747,6 +749,33 @@ def _print_help():
     print("  vocabulary [--category=X]")
     print()
     print("FTS5 syntax supported: AND, OR, NOT, NEAR(t1 t2,N), term*, \"phrase\"")
+
+
+def _print_agent_help():
+    print("""## Commands
+  memory-query search <query> [--project=Y] [--tags=a,b,c] [--limit=N]
+    Auto-selects hybrid (FTS+semantic) if sqlite-vec available, else FTS-only
+  memory-query add --title=X --content=Y [--project=Z] [--tags=a,b] [--no-embed]
+  memory-query delete <entry_id>
+
+## When to search
+- Session start (if hooks not active)
+- Before implementing anything with Stripe, auth, DB schema, or similar patterns
+- When stuck on a "familiar" error
+
+## When to add
+- Decision: chosen approach over alternatives (include why, not just what)
+- Gotcha: non-obvious behavior found while debugging
+- Pattern: reusable solution that worked
+
+## Good titles (findable later)
+  Unfindable: "auth bug", "stripe fix"
+  Findable: "Stripe webhook requires period_end check"
+
+## Gotchas
+- Hyphenated terms → wrap in quotes or FTS treats as NOT ("abby-normal")
+- --project= is a filter (AND logic for tags)
+- --no-embed: skips embedding when you only want FTS""")
 
 
 def _parse_common_args() -> Dict[str, Any]:
