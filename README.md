@@ -1,6 +1,6 @@
 # abby-normal
 
-A global memory system for AI agents with unified storage, full-text search, **semantic vector search**, and multi-agent orchestration.
+A global memory system for AI agents with unified storage, full-text search, and **semantic vector search**.
 
 Named after the "Abby Normal" brain in Young Frankenstein.
 
@@ -11,7 +11,6 @@ abby-normal stores knowledge, decisions, and patterns from AI-assisted developme
 - **Unified memory**: Single table for all knowledge types with FTS search
 - **Semantic search**: Find entries by meaning, not just keywords (via sqlite-vec)
 - **Hybrid search**: Combined FTS5 + semantic similarity for best results
-- **Multi-agent orchestration**: Coordinate specialist agents with wave-based execution
 - **Cross-project**: Search learnings across all your projects
 - **Local-first**: No API keys, no server, everything in a single SQLite file
 
@@ -30,7 +29,6 @@ python3 backfill_embeddings.py
 
 # Create symlinks
 ln -s ~/code/abby-normal/memory_query.py ~/.local/bin/memory-query
-ln -s ~/code/abby-normal/orchestration.py ~/.local/bin/orchestration
 
 # Search (auto-selects hybrid or FTS-only based on available dependencies)
 memory-query search authentication
@@ -63,7 +61,6 @@ Schema:
 - `memory_entries`: All knowledge with FTS5 search
 - `memory_embeddings`: 384-dim vector index (sqlite-vec)
 - `projects` + `components`: Project metadata
-- Orchestration tables for multi-agent coordination
 
 ## Dependencies
 
@@ -156,10 +153,9 @@ Aliases are stored in the abby-normal database, not in source files.
 ```
 abby-normal/
 ├── schema.sql              # Database schema
-├── memory_query.py         # Query CLI (v3.0 with semantic search)
+├── memory_query.py         # Query CLI (with auto-selecting hybrid/fts search)
 ├── embeddings.py           # Shared embedding utilities
 ├── backfill_embeddings.py  # One-time backfill script
-├── orchestration.py        # Multi-agent coordination
 ├── memory_export.py        # Export to JSON
 ├── requirements.txt        # Python dependencies
 ├── hooks/

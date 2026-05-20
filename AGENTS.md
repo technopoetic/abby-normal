@@ -4,7 +4,7 @@
 
 ## What This Is
 
-A SQLite-backed memory system for AI agents. Stores learnings, decisions, and patterns across projects with FTS search **and semantic vector search**. Also includes an optional multi-agent orchestration layer.
+A SQLite-backed memory system for AI agents. Stores learnings, decisions, and patterns across projects with FTS search **and semantic vector search**.
 
 ## Setup
 
@@ -13,7 +13,6 @@ python3 ~/code/abby-normal/setup.py   # Creates ~/.local/share/abby-normal/memor
 
 # Symlinks for CLI access
 ln -s ~/code/abby-normal/memory_query.py ~/.local/bin/memory-query
-ln -s ~/code/abby-normal/orchestration.py ~/.local/bin/orchestration
 ln -s ~/code/abby-normal/migrate_fts.py ~/.local/bin/migrate-abby-fts
 ```
 
@@ -108,26 +107,6 @@ memory-query vocabulary [--category=X]
 - FTS via `memory_entries_fts` virtual table with triggers keeping it in sync
 - `memory_embeddings`: vec0 virtual table for vector similarity search (384-dim, all-MiniLM-L6-v2)
 - `projects` and `components` tables: for filtering and organization
-- Orchestration tables are separate (`orchestration_sessions`, `waves`, `agent_session`, etc.)
-
-## Orchestration (Optional)
-
-Wave-based multi-agent coordination. See `ORCHESTRATION_SETUP.md` for installation.
-
-Agent definitions live in `agents/` — copy them to `~/.config/opencode/agents/` to activate:
-```bash
-cp ~/code/abby-normal/agents/*.md ~/.config/opencode/agents/
-```
-
-```bash
-# CLI — orchestration.py (symlinked as `orchestration`)
-orchestration create-session <project_id> "<description>" [--max-agents=N]
-orchestration create-wave <session_id> <wave_number>
-orchestration create-agent <session_id> <wave_id> <name> <type> "<task>"
-orchestration validate-wave <wave_id> <session_id> <project_id>
-```
-
-In OpenCode: `Tab` to cycle agents → select Orchestrator, or `@orchestrator <task>`.
 
 ## Automatic Hooks (Preferred)
 
@@ -162,10 +141,6 @@ Tags: Database, Architecture, Simplification
 **DEC-003**: CLI wrapper over raw SQL
 Rationale: Agents struggle with SQL syntax. Python CLI scripts provide clean interface.
 Tags: CLI, Python, Agent-UX
-
-**DEC-004**: Skill-based over plugin-based orchestration
-Rationale: Explicit control > magic automation. Agent consciously decides when to orchestrate.
-Tags: OpenCode, Architecture, Skills
 
 **DEC-005**: Hybrid search over keyword-only or semantic-only
 Rationale: FTS5 provides exact keyword precision; semantic provides conceptual recall. Combined with weighted scoring and intersection bonuses, hybrid search surfaces the most relevant results from both approaches.
