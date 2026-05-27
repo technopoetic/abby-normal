@@ -6,9 +6,15 @@ Provides a shared embedding model, sqlite-vec connection factory,
 and encoding helpers used by memory_query.py and backfill_embeddings.py.
 """
 
+import contextlib
+import io
+import logging
 import struct
+import warnings
 from pathlib import Path
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 # Lazy-loaded singletons — only load the model when first needed
 _model = None
@@ -22,8 +28,17 @@ def get_model():
     """Lazily load and cache the sentence-transformers model."""
     global _model
     if _model is None:
-        from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer(_model_name)
+        stderr_buf = io.StringIO()
+        with warnings.catch_warnings(record=True) as caught, \
+             contextlib.redirect_stderr(stderr_buf):
+            warnings.simplefilter("always")
+            from sentence_transformers import SentenceTransformer
+            _model = SentenceTransformer(_model_name)
+        for w in caught:
+            logger.debug("huggingface: %s", str(w.message))
+        captured = stderr_buf.getvalue().strip()
+        if captured:
+            logger.debug("huggingface: %s", captured)
     return _model
 
 

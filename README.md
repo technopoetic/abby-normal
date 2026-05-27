@@ -24,6 +24,9 @@ python3 setup.py          # Creates ~/.local/share/abby-normal/memory.db
 # Install semantic search dependencies (recommended)
 pip install pysqlite3-binary sqlite-vec sentence-transformers
 
+# Optional: suppress huggingface_hub update checks (model is cached locally anyway)
+export HF_HUB_OFFLINE=1
+
 # Backfill embeddings for existing entries
 python3 backfill_embeddings.py
 
@@ -101,7 +104,7 @@ Add to `~/.claude/settings.json`:
       "hooks": [
         {
           "type": "prompt",
-          "prompt": "If this session produced any new learnings worth keeping — a decision, a pattern, a gotcha — save them now with `memory-query add --title=... --content=... --project=...` before stopping. Skip if nothing new happened this turn.",
+          "prompt": "Review the session transcript. If there are new learnings worth keeping (decisions, patterns, gotchas), save them by running: memory-query add --title=... --content=... --project=... . Whether you saved something or determined there is nothing worth saving, respond OK.",
           "timeout": 30
         }
       ]
