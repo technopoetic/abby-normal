@@ -17,7 +17,7 @@ _ABBY_VENV = os.path.expanduser("~/code/abby-normal/.venv")
 if not os.environ.get("ABBY_NORMAL_IN_VENV") and os.path.isdir(_ABBY_VENV):
     import subprocess
     result = subprocess.run(
-        [os.path.join(_ABBY_VENV, "bin", "python3")] + sys.argv,
+        [os.path.join(_ABBY_VENV, "bin", "python3"), __file__] + sys.argv[1:],
         env={**os.environ, "ABBY_NORMAL_IN_VENV": "1"},
     )
     sys.exit(result.returncode)
