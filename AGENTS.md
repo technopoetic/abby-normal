@@ -167,6 +167,12 @@ Standard library sqlite3 may be compiled without load_extension support. pysqlit
 **LEARN-005**: vec0 MATCH syntax, not equality
 sqlite-vec queries use `WHERE embedding MATCH ?` not `WHERE embedding = ?`. The MATCH keyword triggers the vector similarity search.
 
+**LEARN-006**: HuggingFace Hub warnings are silenced in embeddings.py
+`get_model()` captures both Python warnings and stderr (tqdm progress bars) during model load via `warnings.catch_warnings` + `contextlib.redirect_stderr`, routing them to `logging.debug`. To skip HF update checks entirely, set `HF_HUB_OFFLINE=1` in your environment.
+
+**LEARN-007**: Venv re-invocation uses `__file__` + `sys.argv[1:]`
+Both `memory_query.py` and `backfill_embeddings.py` re-invoke themselves under the venv Python using `[venv_python, __file__] + sys.argv[1:]`. Using `sys.argv` directly (which includes `sys.argv[0]`) triggers a semgrep `dangerous-subprocess-use-tainted-env-args` finding. `__file__` is the correct, fixed script path.
+
 ## Conventions
 
 - Tags are optional. Entries without tags are fully searchable via FTS and semantic search.

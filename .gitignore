@@ -26,3 +26,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Static analysis scan output
+static_analysis_semgrep_*/
+static_analysis_codeql_*/
