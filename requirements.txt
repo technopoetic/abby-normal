@@ -1,7 +1,11 @@
-# abby-normal core (always required)
-# No external Python dependencies — uses stdlib sqlite3
+# DEPRECATED — use pyproject.toml + uv sync instead.
+# This file is kept for reference only.
+#
+# uv sync                          # macOS (no pysqlite3-binary needed)
+# uv sync --extra linux            # Linux (includes pysqlite3-binary)
 
-# Vector search (optional, for semantic/hybrid search)
-pysqlite3-binary>=0.5.0
 sqlite-vec>=0.1.6
 sentence-transformers>=3.0.0
+
+# Only needed on Linux where stdlib sqlite3 may lack load_extension:
+# pysqlite3-binary>=0.5.0

@@ -173,6 +173,9 @@ sqlite-vec queries use `WHERE embedding MATCH ?` not `WHERE embedding = ?`. The 
 **LEARN-007**: Venv re-invocation uses `__file__` + `sys.argv[1:]`
 Both `memory_query.py` and `backfill_embeddings.py` re-invoke themselves under the venv Python using `[venv_python, __file__] + sys.argv[1:]`. Using `sys.argv` directly (which includes `sys.argv[0]`) triggers a semgrep `dangerous-subprocess-use-tainted-env-args` finding. `__file__` is the correct, fixed script path.
 
+**LEARN-008**: pysqlite3-binary unavailable on macOS arm64 + Python 3.12
+`pysqlite3-binary` has no wheels for this platform. However, stdlib `sqlite3` (via mise-installed Python) supports `load_extension`, making `pysqlite3` unnecessary. Both `embeddings.py` and `memory_query.py` now try pysqlite3 first, fall back to stdlib sqlite3. Linux behavior unchanged.
+
 ## Conventions
 
 - Tags are optional. Entries without tags are fully searchable via FTS and semantic search.
@@ -187,13 +190,14 @@ Both `memory_query.py` and `backfill_embeddings.py` re-invoke themselves under t
 - Python 3.8+
 - SQLite 3.25+ (for window functions)
 - **For semantic search** (optional but recommended):
-  - `pysqlite3-binary` — SQLite with extension loading
   - `sqlite-vec` — Vector similarity search extension
   - `sentence-transformers` — Local embedding model
+  - `pysqlite3-binary` — Only needed on Linux where stdlib sqlite3 may lack `load_extension`
 
-Install all at once:
+Install with uv (preferred):
 ```bash
-pip install pysqlite3-binary sqlite-vec sentence-transformers
+uv sync                    # macOS (stdlib sqlite3 supports load_extension)
+uv sync --extra linux      # Linux (includes pysqlite3-binary)
 ```
 
 ## Personality
