@@ -12,16 +12,14 @@ import os
 import subprocess
 import sys
 
-MEMORY_QUERY = os.path.expanduser("~/code/abby-normal/.venv/bin/python3")
-MEMORY_SCRIPT = os.path.expanduser("~/code/abby-normal/memory_query.py")
+MEMORY_QUERY = os.path.expanduser("~/.local/bin/memory-query")
 
 
 def _run_memory_query(*args):
     return subprocess.run(
-        [MEMORY_QUERY, MEMORY_SCRIPT, *args],
+        [MEMORY_QUERY, *args],
         capture_output=True,
         text=True,
-        env={**os.environ, "ABBY_NORMAL_IN_VENV": "1"},
     )
 
 

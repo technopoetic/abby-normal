@@ -55,12 +55,30 @@ _VEC_AVAILABLE = False
 
 
 def _try_import_vec():
-    """Check if sqlite-vec + pysqlite3 are available."""
+    """Check if sqlite-vec and a load_extension-capable sqlite3 are available.
+
+    Prefers pysqlite3 (guaranteed load_extension support, used on Linux).
+    Falls back to stdlib sqlite3 if it supports load_extension (macOS arm64
+    where pysqlite3-binary has no wheels).
+    """
+    try:
+        import sqlite_vec  # noqa: F401
+    except ImportError:
+        return False
+
     try:
         import pysqlite3  # noqa: F401
-        import sqlite_vec  # noqa: F401
         return True
     except ImportError:
+        pass
+
+    # pysqlite3 not available — check stdlib sqlite3
+    try:
+        conn = sqlite3.connect(":memory:")
+        conn.enable_load_extension(True)
+        conn.close()
+        return True
+    except (AttributeError, Exception):
         return False
 
 
@@ -134,8 +152,9 @@ class MemoryQuery:
         if self._vec_conn is None:
             if not _VEC_AVAILABLE:
                 raise RuntimeError(
-                    "Vector search requires pysqlite3-binary and sqlite-vec. "
-                    "Install with: pip install pysqlite3-binary sqlite-vec sentence-transformers"
+                    "Vector search requires sqlite-vec and sentence-transformers. "
+                    "Install with: pip install sqlite-vec sentence-transformers "
+                    "(also install pysqlite3-binary if stdlib sqlite3 lacks load_extension support)"
                 )
             from embeddings import get_connection, ensure_vec_table
             self._vec_conn = get_connection(self.db_path)

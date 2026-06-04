@@ -71,18 +71,46 @@ def encode_float32(vec) -> bytes:
     return struct.pack("<" + "f" * len(vec), *vec)
 
 
+def _get_sqlite_module():
+    """Return a sqlite3-compatible module that supports load_extension.
+
+    Prefers pysqlite3 when available (guaranteed load_extension support).
+    Falls back to stdlib sqlite3 if it supports load_extension.
+    Raises RuntimeError if neither works.
+    """
+    try:
+        import pysqlite3
+        return pysqlite3
+    except ImportError:
+        pass
+
+    import sqlite3
+    # Probe: stdlib sqlite3 may or may not support load_extension
+    probe = sqlite3.connect(":memory:")
+    try:
+        probe.enable_load_extension(True)
+        probe.close()
+        return sqlite3
+    except (AttributeError, Exception):
+        probe.close()
+        raise RuntimeError(
+            "Neither pysqlite3 nor stdlib sqlite3 supports load_extension. "
+            "Install pysqlite3-binary: pip install pysqlite3-binary"
+        )
+
+
 def get_connection(db_path: Optional[Path] = None):
     """
     Open a SQLite connection with sqlite-vec loaded.
 
-    Uses pysqlite3 (which supports load_extension) instead of the
-    standard library sqlite3 (which may be compiled without it).
+    Prefers pysqlite3 (which always supports load_extension), falls back
+    to stdlib sqlite3 if it supports load_extension on this platform.
     """
-    import pysqlite3
+    sqlite_mod = _get_sqlite_module()
     import sqlite_vec
 
     path = db_path or DB_PATH
-    conn = pysqlite3.connect(str(path))
+    conn = sqlite_mod.connect(str(path))
     conn.enable_load_extension(True)
     sqlite_vec.load(conn)
     conn.enable_load_extension(False)

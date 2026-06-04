@@ -1,0 +1,18 @@
+[project]
+name = "abby-normal"
+version = "3.0.0"
+description = "SQLite-backed memory system for AI agents"
+requires-python = ">=3.8"
+
+dependencies = [
+    "sqlite-vec>=0.1.6",
+    "sentence-transformers>=3.0.0",
+]
+
+[project.optional-dependencies]
+# pysqlite3-binary is needed on Linux where stdlib sqlite3 may lack
+# load_extension support. On macOS (arm64), it has no wheels — stdlib
+# sqlite3 supports load_extension there.
+linux = [
+    "pysqlite3-binary>=0.5.0",
+]
