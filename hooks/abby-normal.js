@@ -51,7 +51,7 @@ export const AbbyNormalPlugin = async ({ $, directory }) => {
         },
         async execute(args) {
           try {
-            await $`memory-query add --title=${args.title} --content=${args.content} --project=${args.project}`
+            await $`memory-query add --title=${args.title} --content=${args.content} --project=${args.project}`.text()
             return `Saved: ${args.title}`
           } catch (e) {
             return `Save failed: ${e.message}`

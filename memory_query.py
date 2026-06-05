@@ -853,6 +853,7 @@ def _cmd_add(mq: MemoryQuery):
     tags = None
     metadata = None
     no_embed = False
+    quiet = False
 
     for arg in sys.argv[2:]:
         if arg.startswith("--title="):
@@ -869,6 +870,8 @@ def _cmd_add(mq: MemoryQuery):
             metadata = json.loads(arg.split("=", 1)[1])
         elif arg == "--no-embed":
             no_embed = True
+        elif arg == "--quiet":
+            quiet = True
 
     if not title or not content:
         print("Error: --title and --content are required")
@@ -892,8 +895,9 @@ def _cmd_add(mq: MemoryQuery):
         generate_embedding=not no_embed,
     )
 
-    embed_status = "with embedding" if (not no_embed and _VEC_AVAILABLE) else "without embedding"
-    print(json.dumps({"entry_id": entry_id, "status": "added", "embedding": embed_status}))
+    if not quiet:
+        embed_status = "with embedding" if (not no_embed and _VEC_AVAILABLE) else "without embedding"
+        print(json.dumps({"entry_id": entry_id, "status": "added", "embedding": embed_status}))
 
 
 def _cmd_delete(mq: MemoryQuery):
