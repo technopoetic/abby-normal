@@ -18,10 +18,7 @@ ln -s ~/code/abby-normal/migrate_fts.py ~/.local/bin/migrate-abby-fts
 
 Database lives at `~/.local/share/abby-normal/memory.db` — never delete it without explicit permission.
 
-The database is git-tracked in `~/.config/opencode/`. After sessions, commit it there:
-```bash
-cd ~/.config/opencode && git add memory.db && git commit -m "Session: ..."
-```
+The database is **not** git-tracked. It's local-only data, machine-specific, and the historical snapshot at `~/.config/opencode/memory.db` is stale (kept as reference, not the live source). Back up manually if you want a snapshot.
 
 ## Migrating an Existing Installation
 
