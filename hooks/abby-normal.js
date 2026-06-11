@@ -28,7 +28,7 @@ export const AbbyNormalPlugin = async ({ $, directory }) => {
   return {
     tool: {
       abby_recall: tool({
-        description: "Search abby-normal for memories relevant to the current work. Use at session start with the project name or a relevant keyword.",
+        description: "Search abby-normal for memories relevant to the current work. Use at session start with the project name or a relevant keyword. ALSO use this before calling abby_save to check that a candidate memory is not already stored.",
         args: {
           query: tool.schema.string(),
         },
@@ -43,7 +43,7 @@ export const AbbyNormalPlugin = async ({ $, directory }) => {
       }),
 
       abby_save: tool({
-        description: "Save a memory to abby-normal. Use for decisions, gotchas, and patterns worth keeping across sessions.",
+        description: "Save a memory to abby-normal. DO NOT use this for routine work, code edits, or things already obvious from the code. Only call when ALL are true: (1) a specific decision was made, a non-obvious gotcha was hit, or a reusable pattern emerged; (2) you have already called abby_recall to confirm this is not a duplicate; (3) deleting this memory tomorrow would measurably worsen a future session. Default is to NOT save. One memory per real lesson.",
         args: {
           title: tool.schema.string(),
           content: tool.schema.string(),

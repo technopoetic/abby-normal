@@ -114,7 +114,7 @@ Both Claude Code and OpenCode now load memories automatically — no manual sess
 
 **Claude Code** (`~/.claude/settings.json`):
 - `SessionStart` command hook runs `hooks/session_start.py`, which queries `search-hybrid <project>` and injects results as `additionalContext`
-- `Stop` prompt hook nudges Claude to save learnings at turn end
+- `Stop` prompt hook requires Claude to run `memory-query search` first, then default-deny save (see LEARN-009)
 
 **OpenCode** (`~/.config/opencode/plugins/abby-normal.js`):
 - `experimental.chat.messages.transform` injects memories into the first user message of each session
@@ -175,6 +175,9 @@ Both `memory_query.py` and `backfill_embeddings.py` re-invoke themselves under t
 
 **LEARN-008**: pysqlite3-binary unavailable on macOS arm64 + Python 3.12
 `pysqlite3-binary` has no wheels for this platform. However, stdlib `sqlite3` (via mise-installed Python) supports `load_extension`, making `pysqlite3` unnecessary. Both `embeddings.py` and `memory_query.py` now try pysqlite3 first, fall back to stdlib sqlite3. Linux behavior unchanged.
+
+**LEARN-009**: Stop-prompt "save memories" nudges cause noise
+Claude treated the old Stop hook ("If there are new learnings worth keeping, save them... respond OK") as a save-instruction, not a nudge — it saved filler entries every session. Fixed by rewriting the prompt to lead with "DEFAULT: do nothing", require `memory-query search` first to dedupe, and bake the same three-criteria bar into the OpenCode `abby_save` tool description (the model reads the tool description at every call). See `~/.claude/settings.json` Stop hook and `hooks/abby-normal.js` for current wording.
 
 ## Conventions
 
