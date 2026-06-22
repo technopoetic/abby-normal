@@ -2,7 +2,7 @@
 name = "abby-normal"
 version = "3.0.0"
 description = "SQLite-backed memory system for AI agents"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 
 dependencies = [
     "sqlite-vec>=0.1.6",
