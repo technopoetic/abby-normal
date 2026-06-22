@@ -105,24 +105,24 @@ memory-query vocabulary [--category=X]
 - `memory_embeddings`: vec0 virtual table for vector similarity search (384-dim, all-MiniLM-L6-v2)
 - `projects` and `components` tables: for filtering and organization
 
-## Automatic Hooks (Preferred)
+## Agent Integration
 
-Both Claude Code and OpenCode now load memories automatically — no manual session-start search needed.
+Both Claude Code and OpenCode get memory access through two mechanisms: automatic session-start injection (read-only) and explicit tool calls for search/save.
 
 **Claude Code** (`~/.claude/settings.json`):
-- `SessionStart` command hook runs `hooks/session_start.py`, which queries `search-hybrid <project>` and injects results as `additionalContext`
-- `Stop` prompt hook requires Claude to run `memory-query search` first, then default-deny save (see LEARN-009)
+- `SessionStart` command hook runs `hooks/session_start.py`, which queries `search <project>` and injects results as `additionalContext`
+- `abby-normal` MCP server exposes `abby_recall` and `abby_save` tools via stdio transport — same interface as OpenCode's native tools, no prompt hooks needed
 
 **OpenCode** (`~/.config/opencode/plugins/abby-normal.js`):
 - `experimental.chat.messages.transform` injects memories into the first user message of each session
 - `experimental.session.compacting` re-injects at context compaction
 - `abby_recall` and `abby_save` tools are available for explicit memory operations
 
-**Project detection**: Both hooks derive the project ID from the working directory basename, mapped via `PROJECT_MAP` in each file. Project name is used as a boost term in hybrid search — not a hard filter — so cross-project memories surface when relevant.
+**Project detection**: Both systems derive the project ID from the working directory basename, mapped via aliases. Project name is used as a boost term in hybrid search — not a hard filter — so cross-project memories surface when relevant.
 
-If hooks aren't active (or you want to search manually):
+If integration isn't active (or you want to search manually):
 ```bash
-memory-query search-hybrid <project-or-keyword>
+memory-query search <project-or-keyword>
 ```
 
 ## Key Architectural Decisions

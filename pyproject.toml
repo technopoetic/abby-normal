@@ -7,6 +7,7 @@ requires-python = ">=3.8"
 dependencies = [
     "sqlite-vec>=0.1.6",
     "sentence-transformers>=3.0.0",
+    "mcp>=1.0.0",
 ]
 
 [project.optional-dependencies]
