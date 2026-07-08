@@ -25,7 +25,14 @@ DB_PATH = Path.home() / ".local" / "share" / "abby-normal" / "memory.db"
 
 
 def get_model():
-    """Lazily load and cache the sentence-transformers model."""
+    """Lazily load and cache the sentence-transformers model.
+
+    Tries the local cache first so a fully-cached model never touches the
+    network. Only falls back to an online load (which downloads the model)
+    when it's missing from the cache — this also sidesteps a huggingface_hub
+    bug where a failed connectivity check strands a closed httpx client and
+    turns network hiccups into a hard crash instead of a normal timeout.
+    """
     global _model
     if _model is None:
         stderr_buf = io.StringIO()
@@ -33,7 +40,10 @@ def get_model():
              contextlib.redirect_stderr(stderr_buf):
             warnings.simplefilter("always")
             from sentence_transformers import SentenceTransformer
-            _model = SentenceTransformer(_model_name)
+            try:
+                _model = SentenceTransformer(_model_name, local_files_only=True)
+            except OSError:
+                _model = SentenceTransformer(_model_name)
         for w in caught:
             logger.debug("huggingface: %s", str(w.message))
         captured = stderr_buf.getvalue().strip()
