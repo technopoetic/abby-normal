@@ -6,6 +6,7 @@
 # personal files — one-off data migration scripts
 migrate*
 !migrate_fts.py
+!migrate_drop_projects.py
 seed_database.py
 
 # Python cache
