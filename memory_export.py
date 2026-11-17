@@ -27,23 +27,11 @@ def export_memory(db_path: Path = DB_PATH, output_path: Optional[Path] = None) -
             "exported_at": None,  # Will be filled by SQL
             "database_version": "1.0.0",
         },
-        "projects": rows_to_dicts(conn.execute("SELECT * FROM projects")),
-        "components": rows_to_dicts(conn.execute("SELECT * FROM components")),
-        "learnings": rows_to_dicts(conn.execute("SELECT * FROM learnings ORDER BY id")),
-        "patterns": rows_to_dicts(conn.execute("SELECT * FROM patterns ORDER BY id")),
-        "architectural_decisions": rows_to_dicts(
-            conn.execute("SELECT * FROM architectural_decisions ORDER BY id")
+        "memory_entries": rows_to_dicts(
+            conn.execute("SELECT * FROM memory_entries ORDER BY created_at")
         ),
-        "pitfalls": rows_to_dicts(conn.execute("SELECT * FROM pitfalls ORDER BY id")),
-        "decisions": rows_to_dicts(
-            conn.execute("SELECT * FROM decisions ORDER BY project_id, id")
-        ),
-        "changelog": rows_to_dicts(
-            conn.execute("SELECT * FROM changelog ORDER BY date DESC LIMIT 100")
-        ),
-        "phases": rows_to_dicts(conn.execute("SELECT * FROM phases ORDER BY project_id, id")),
-        "open_questions": rows_to_dicts(
-            conn.execute("SELECT * FROM open_questions ORDER BY project_id, id")
+        "project_aliases": rows_to_dicts(
+            conn.execute("SELECT * FROM project_aliases ORDER BY project_id, dirname")
         ),
         "vocabulary": rows_to_dicts(
             conn.execute("SELECT * FROM vocabulary ORDER BY category, term")

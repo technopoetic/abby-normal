@@ -177,36 +177,46 @@ class MemoryQuery:
     # PROJECT QUERIES
     # ============================================
 
-    def get_project(self, project_id: str) -> Optional[Dict[str, Any]]:
-        """Get project details by ID."""
-        cursor = self.conn.execute(
-            "SELECT * FROM projects WHERE id = ?", (project_id,)
-        )
-        row = cursor.fetchone()
-        return dict(row) if row else None
+    # Projects are derived from memory_entries rather than stored in their own
+    # table: a separate table drifted because nothing kept it in sync.
+    # NULL and '' are both "no project", reported as null.
 
-    def get_project_components(self, project_id: str) -> List[Dict[str, Any]]:
-        """Get all components for a project."""
+    def list_projects(self) -> List[Dict[str, Any]]:
+        """List every project_id in use, most recently active first."""
         cursor = self.conn.execute(
             """
-            SELECT * FROM components
+            SELECT NULLIF(project_id, '') AS project_id,
+                   count(*) AS entries,
+                   max(created_at) AS last_entry
+            FROM memory_entries
+            GROUP BY NULLIF(project_id, '')
+            ORDER BY last_entry DESC
+            """
+        )
+        return self._rows_to_dicts(cursor.fetchall())
+
+    def get_project_stats(self, project_id: str) -> Optional[Dict[str, Any]]:
+        """Entry count, date range, and aliases for one project, or None if unused."""
+        row = self.conn.execute(
+            """
+            SELECT count(*) AS entries,
+                   min(created_at) AS first_entry,
+                   max(created_at) AS last_entry
+            FROM memory_entries
             WHERE project_id = ?
-            ORDER BY name
             """,
             (project_id,),
-        )
-        return self._rows_to_dicts(cursor.fetchall())
-
-    def get_active_projects(self) -> List[Dict[str, Any]]:
-        """Get all active projects."""
-        cursor = self.conn.execute(
-            """
-            SELECT * FROM projects
-            WHERE status = 'active'
-            ORDER BY last_active DESC
-            """
-        )
-        return self._rows_to_dicts(cursor.fetchall())
+        ).fetchone()
+        if row["entries"] == 0:
+            return None
+        aliases = [
+            r[0]
+            for r in self.conn.execute(
+                "SELECT dirname FROM project_aliases WHERE project_id = ? ORDER BY dirname",
+                (project_id,),
+            )
+        ]
+        return {"project_id": project_id, **dict(row), "aliases": aliases}
 
     # ============================================
     # PROJECT ALIASES
@@ -246,7 +256,6 @@ class MemoryQuery:
         self,
         query: Optional[str] = None,
         project_id: Optional[str] = None,
-        component_name: Optional[str] = None,
         tags: Optional[List[str]] = None,
         limit: int = 20,
     ) -> List[Dict[str, Any]]:
@@ -263,20 +272,18 @@ class MemoryQuery:
         Args:
             query: Full-text search query. Supports FTS5 syntax when detected.
             project_id: Filter by project
-            component_name: Filter by component
             tags: Filter by tags (entry must have ALL specified tags)
             limit: Max results to return (default 20)
         """
         if query:
-            return self._search_with_fts(query, project_id, component_name, tags, limit)
+            return self._search_with_fts(query, project_id, tags, limit)
         else:
-            return self._search_without_fts(project_id, component_name, tags, limit)
+            return self._search_without_fts(project_id, tags, limit)
 
     def _search_with_fts(
         self,
         query: str,
         project_id: Optional[str],
-        component_name: Optional[str],
         tags: Optional[List[str]],
         limit: int,
     ) -> List[Dict[str, Any]]:
@@ -292,7 +299,7 @@ class MemoryQuery:
         fts_query = self._build_fts_query(query)
 
         sql = """
-            SELECT m.id, m.project_id, m.component_name, m.title, m.content,
+            SELECT m.id, m.project_id, m.title, m.content,
                    m.metadata, m.created_at,
                    bm25(memory_entries_fts) AS bm25_score,
                    snippet(memory_entries_fts, -1, '[', ']', '...', 20) AS excerpt
@@ -305,10 +312,6 @@ class MemoryQuery:
         if project_id:
             sql += " AND m.project_id = ?"
             params.append(project_id)
-
-        if component_name:
-            sql += " AND m.component_name = ?"
-            params.append(component_name)
 
         if tags:
             for tag in tags:
@@ -341,7 +344,6 @@ class MemoryQuery:
     def _search_without_fts(
         self,
         project_id: Optional[str],
-        component_name: Optional[str],
         tags: Optional[List[str]],
         limit: int,
     ) -> List[Dict[str, Any]]:
@@ -356,10 +358,6 @@ class MemoryQuery:
         if project_id:
             where_clauses.append("m.project_id = ?")
             params.append(project_id)
-
-        if component_name:
-            where_clauses.append("m.component_name = ?")
-            params.append(component_name)
 
         if tags:
             for tag in tags:
@@ -383,7 +381,6 @@ class MemoryQuery:
         self,
         query: str,
         project_id: Optional[str] = None,
-        component_name: Optional[str] = None,
         tags: Optional[List[str]] = None,
         limit: int = 10,
         distance_threshold: float = 1.2,
@@ -398,7 +395,6 @@ class MemoryQuery:
         Args:
             query: Natural language query
             project_id: Filter by project
-            component_name: Filter by component
             tags: Filter by tags (must have ALL specified tags)
             limit: Max results to return
             distance_threshold: Max cosine distance (0=identical, ~1.0=typical match, >1.5=unrelated)
@@ -430,10 +426,6 @@ class MemoryQuery:
             sql += " AND m.project_id = ?"
             params.append(project_id)
 
-        if component_name:
-            sql += " AND m.component_name = ?"
-            params.append(component_name)
-
         if tags:
             for tag in tags:
                 sql += " AND json_extract(m.metadata, '$.tags') LIKE ?"
@@ -459,7 +451,6 @@ class MemoryQuery:
         self,
         query: str,
         project_id: Optional[str] = None,
-        component_name: Optional[str] = None,
         tags: Optional[List[str]] = None,
         limit: int = 10,
         semantic_weight: float = 0.7,
@@ -476,7 +467,6 @@ class MemoryQuery:
         Args:
             query: Search query
             project_id: Filter by project
-            component_name: Filter by component
             tags: Filter by tags
             limit: Max results
             semantic_weight: Weight for semantic scores (0-1, default 0.7)
@@ -486,7 +476,6 @@ class MemoryQuery:
         fts_results = self.search_memory(
             query=query,
             project_id=project_id,
-            component_name=component_name,
             tags=tags,
             limit=limit * 2,
         )
@@ -494,7 +483,6 @@ class MemoryQuery:
         semantic_results = self.search_semantic(
             query=query,
             project_id=project_id,
-            component_name=component_name,
             tags=tags,
             limit=limit * 2,
             distance_threshold=1.5,
@@ -576,7 +564,6 @@ class MemoryQuery:
         title: str,
         content: str,
         project_id: Optional[str] = None,
-        component_name: Optional[str] = None,
         metadata: Optional[Dict] = None,
         tags: Optional[List[str]] = None,
         generate_embedding: bool = True,
@@ -592,7 +579,6 @@ class MemoryQuery:
             title: Short title
             content: Full content/description
             project_id: Associated project (optional)
-            component_name: Associated component (optional)
             metadata: Flexible JSON metadata
             tags: List of tags (merged into metadata)
             generate_embedding: Whether to auto-generate vector embedding
@@ -604,13 +590,12 @@ class MemoryQuery:
         self.conn.execute(
             """
             INSERT INTO memory_entries
-            (id, project_id, component_name, title, content, metadata)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (id, project_id, title, content, metadata)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 entry_id,
                 project_id,
-                component_name,
                 title,
                 content,
                 json.dumps(final_metadata) if final_metadata else None,
@@ -731,8 +716,8 @@ def main():
             _cmd_delete(mq)
         elif command == "project":
             _cmd_project(mq)
-        elif command == "active-projects":
-            _cmd_active_projects(mq)
+        elif command == "projects":
+            _cmd_projects(mq)
         elif command == "vocabulary":
             _cmd_vocabulary(mq)
         elif command == "alias":
@@ -753,7 +738,8 @@ def _print_help():
     print("    Hybrid FTS + semantic search (falls back to FTS-only if sqlite-vec unavailable)")
     print()
     print("Memory:")
-    print("  add --title=Y --content=Z [--project=A] [--component=B] [--tags=c,d] [--no-embed]")
+    print("  add --title=Y --content=Z [--project=A] [--tags=c,d] [--no-embed]")
+    print("    --project is resolved through aliases")
     print("  delete <entry_id>")
     print()
     print("Projects:")
@@ -761,8 +747,8 @@ def _print_help():
     print("  alias add <dirname> <project-id>        Map a directory to a project")
     print("  alias remove <dirname>                  Remove an alias")
     print("  resolve-project <dirname>               Resolve dirname to project ID")
-    print("  project <project_id>                    Show project details")
-    print("  active-projects                         List active projects")
+    print("  projects                                List project ids in use, with entry counts")
+    print("  project <project_id>                    Entry count, date range, aliases")
     print()
     print("Other:")
     print("  vocabulary [--category=X]")
@@ -849,7 +835,6 @@ def _cmd_add(mq: MemoryQuery):
     title = None
     content = None
     project_id = None
-    component_name = None
     tags = None
     metadata = None
     no_embed = False
@@ -862,8 +847,6 @@ def _cmd_add(mq: MemoryQuery):
             content = arg.split("=", 1)[1]
         elif arg.startswith("--project="):
             project_id = arg.split("=", 1)[1]
-        elif arg.startswith("--component="):
-            component_name = arg.split("=", 1)[1]
         elif arg.startswith("--tags="):
             tags = arg.split("=", 1)[1].split(",")
         elif arg.startswith("--metadata="):
@@ -888,8 +871,9 @@ def _cmd_add(mq: MemoryQuery):
         entry_id=entry_id,
         title=title,
         content=content,
-        project_id=project_id,
-        component_name=component_name,
+        # Resolve through aliases so a repo dirname passed as the project
+        # (e.g. by the MCP abby_save tool) doesn't split a project in two.
+        project_id=mq.resolve_project(project_id) if project_id else project_id,
         metadata=metadata,
         tags=tags,
         generate_embedding=not no_embed,
@@ -914,14 +898,15 @@ def _cmd_project(mq: MemoryQuery):
         print("Error: project_id required")
         sys.exit(1)
     project_id = sys.argv[2]
-    project = mq.get_project(project_id)
-    components = mq.get_project_components(project_id)
-    print(json.dumps({"project": project, "components": components}, indent=2))
+    stats = mq.get_project_stats(project_id)
+    if stats is None:
+        print(json.dumps({"project_id": project_id, "error": "no entries for this project"}))
+        sys.exit(1)
+    print(json.dumps(stats, indent=2))
 
 
-def _cmd_active_projects(mq: MemoryQuery):
-    projects = mq.get_active_projects()
-    print(json.dumps(projects, indent=2))
+def _cmd_projects(mq: MemoryQuery):
+    print(json.dumps(mq.list_projects(), indent=2))
 
 
 def _cmd_alias(mq: MemoryQuery):

@@ -63,7 +63,7 @@ Location: `~/.local/share/abby-normal/memory.db`
 Schema:
 - `memory_entries`: All knowledge with FTS5 search
 - `memory_embeddings`: 384-dim vector index (sqlite-vec)
-- `projects` + `components`: Project metadata
+- `project_aliases`: directory-to-project mapping (projects themselves are derived from entries)
 
 ## Dependencies
 

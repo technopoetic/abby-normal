@@ -87,15 +87,16 @@ def migrate(db_path: Path = DB_PATH) -> None:
     """)
     conn.execute("""
         CREATE TRIGGER memory_ad AFTER DELETE ON memory_entries BEGIN
-            DELETE FROM memory_entries_fts WHERE rowid = old.rowid;
+            INSERT INTO memory_entries_fts(memory_entries_fts, rowid, title, content)
+            VALUES ('delete', old.rowid, old.title, old.content);
         END
     """)
     conn.execute("""
         CREATE TRIGGER memory_au AFTER UPDATE ON memory_entries BEGIN
-            UPDATE memory_entries_fts SET
-                title = new.title,
-                content = new.content
-            WHERE rowid = new.rowid;
+            INSERT INTO memory_entries_fts(memory_entries_fts, rowid, title, content)
+            VALUES ('delete', old.rowid, old.title, old.content);
+            INSERT INTO memory_entries_fts(rowid, title, content)
+            VALUES (new.rowid, new.title, new.content);
         END
     """)
 

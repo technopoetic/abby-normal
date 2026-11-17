@@ -79,7 +79,6 @@ memory-query add \
   --title="Short title" \
   --content="Full description" \
   --project=myproject \        # Optional
-  --component=mycomponent \    # Optional, sub-project grouping
   --tags=Tag1,Tag2             # Optional
 ```
 
@@ -92,8 +91,9 @@ memory-query add --title="Quick note" --content="..." --no-embed
 
 ### Other
 ```bash
-memory-query project <project_id>    # Project details + components
-memory-query active-projects         # All projects with status='active'
+memory-query projects                # Project ids in use, with entry counts and last entry date
+memory-query project <project_id>    # Entry count, date range, aliases for one project
+memory-query alias add <dirname> <project_id>  # Map a repo dirname to a project
 memory-query vocabulary [--category=X]
 ```
 
@@ -103,7 +103,8 @@ memory-query vocabulary [--category=X]
 - `metadata` column: JSON blob; tags stored as `metadata.tags` array
 - FTS via `memory_entries_fts` virtual table with triggers keeping it in sync
 - `memory_embeddings`: vec0 virtual table for vector similarity search (384-dim, all-MiniLM-L6-v2)
-- `projects` and `components` tables: for filtering and organization
+- Projects are not a table: they're derived from `memory_entries.project_id`
+- `project_aliases`: maps directory basenames to project ids; used by the hooks and by `add --project=`
 
 ## Agent Integration
 
