@@ -2,7 +2,8 @@
 """
 One-time migration: drop the projects/components tables and the
 memory_entries.component_name column, fold mekanik_* project ids into mekanik,
-and add directory aliases so the split doesn't recur.
+and add directory aliases so the split doesn't recur. Also drops the empty
+tables left behind by the removed orchestration layer.
 
 Why:
 - Nothing in the code ever wrote to `projects`, so `active-projects` showed
@@ -50,6 +51,20 @@ ALIASES = {
 }
 
 
+# Left behind by the orchestration layer removed in 43036be, plus
+# project_languages. Two of them carry foreign keys to `projects`.
+DEAD_TABLES = [
+    "agent_sessions",
+    "contract_mismatches",
+    "interface_contracts",
+    "orchestration_sessions",
+    "synthesis_results",
+    "task_dependencies",
+    "waves",
+    "project_languages",
+]
+
+
 def _add_tag(metadata_json, tag):
     metadata = json.loads(metadata_json) if metadata_json else {}
     tags = metadata.get("tags") or []
@@ -62,7 +77,9 @@ def _add_tag(metadata_json, tag):
 def migrate(conn, dry_run):
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     columns = {r[1] for r in conn.execute("PRAGMA table_info(memory_entries)")}
-    if "projects" not in tables and "component_name" not in columns:
+    needs_rebuild = "projects" in tables or "component_name" in columns
+    dead_present = [t for t in DEAD_TABLES if t in tables]
+    if not needs_rebuild and not dead_present:
         print("Already migrated; nothing to do.")
         return
 
@@ -71,6 +88,33 @@ def migrate(conn, dry_run):
     conn.execute("PRAGMA foreign_keys=OFF")
     conn.execute("BEGIN")
 
+    if needs_rebuild:
+        _rebuild(conn)
+    else:
+        print("Projects/components already removed; skipping rebuild.")
+    _drop_dead_tables(conn, dead_present)
+
+    if dry_run:
+        conn.execute("ROLLBACK")
+        print("Dry run: rolled back.")
+    else:
+        conn.execute("COMMIT")
+        print("Committed.")
+
+
+def _drop_dead_tables(conn, dead_present):
+    # Refuse rather than drop anything holding data: these are expected to be
+    # empty, and a non-empty one means something still uses it.
+    for table in dead_present:
+        rows = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+        if rows:
+            raise RuntimeError(f"{table} has {rows} rows; not dropping it. Rolling back.")
+    for table in dead_present:
+        conn.execute(f"DROP TABLE {table}")
+    print(f"Dropped empty leftover tables: {len(dead_present)}")
+
+
+def _rebuild(conn):
     before = dict(conn.execute("SELECT rowid, id FROM memory_entries").fetchall())
     print(f"Entries before: {len(before)}")
 
@@ -169,13 +213,6 @@ def migrate(conn, dry_run):
     if leftover:
         raise RuntimeError(f"{leftover} entries still have folded project ids")
     print(f"Verified: {len(after)} entries, rowids unchanged, FTS + integrity OK")
-
-    if dry_run:
-        conn.execute("ROLLBACK")
-        print("Dry run: rolled back.")
-    else:
-        conn.execute("COMMIT")
-        print("Committed.")
 
 
 def main():
