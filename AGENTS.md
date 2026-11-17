@@ -177,6 +177,9 @@ Both `memory_query.py` and `backfill_embeddings.py` re-invoke themselves under t
 **LEARN-009**: Stop-prompt "save memories" nudges cause noise
 Claude treated the old Stop hook ("If there are new learnings worth keeping, save them... respond OK") as a save-instruction, not a nudge — it saved filler entries every session. Fixed by rewriting the prompt to lead with "DEFAULT: do nothing", require `memory-query search` first to dedupe, and bake the same three-criteria bar into the OpenCode `abby_save` tool description (the model reads the tool description at every call). See `~/.claude/settings.json` Stop hook and `hooks/abby-normal.js` for current wording.
 
+**LEARN-010**: Intel Macs cap at torch 2.2.2 / Python 3.12
+PyTorch stopped shipping macOS x86_64 wheels after 2.2.2, and torch 2.2.2 supports at most Python 3.12. On Intel Macs, pin Python 3.12 and keep the marker-scoped caps in `pyproject.toml` (torch<2.3, transformers<5, numpy<2, all scoped to darwin+x86_64 so other platforms stay current). Intel-scoped caps alone are not enough: uv only forks the universal resolution when requirements *contradict* across markers, so without the opposite requirements (`torch>=2.3`, `transformers>=5`, `numpy>=2` for everything that isn't darwin+x86_64) it picks the old versions for every platform. PEP 508 markers have no `not`, so the negation is written out. `requires-python` can't be platform-scoped, so the <3.13 cap is global. torch 2.12 arm64 wheels need macOS 14+.
+
 ## Conventions
 
 - Tags are optional. Entries without tags are fully searchable via FTS and semantic search.

@@ -2,12 +2,33 @@
 name = "abby-normal"
 version = "3.0.0"
 description = "SQLite-backed memory system for AI agents"
-requires-python = ">=3.10"
+# Upper bound: PyTorch stopped publishing macOS x86_64 (Intel) wheels after
+# 2.2.2, and torch 2.2.2 supports at most Python 3.12. requires-python can't
+# be scoped by platform, so this cap applies everywhere; .python-version pins
+# 3.12 on every machine anyway.
+requires-python = ">=3.10, <3.13"
 
 dependencies = [
     "sqlite-vec>=0.1.6",
     "sentence-transformers>=3.0.0",
     "mcp>=1.0.0",
+    # torch<2.3 cap: PyTorch stopped building macOS x86_64 (Intel) wheels
+    # after 2.2.2, and 2.2.2 supports at most Python 3.12. Scope the cap to
+    # Intel Macs only so other platforms keep current torch.
+    "torch<2.3 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    # transformers 5.x import paths assume newer torch (NameError on nn under
+    # torch 2.2), so Intel Macs stay on the 4.x line.
+    "transformers<5 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    # torch 2.2.2 predates numpy 2.x support ("Numpy is not available" from
+    # tensor.numpy()), so Intel Macs stay on numpy 1.x.
+    "numpy<2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    # The opposite requirements below are what make uv fork the resolution.
+    # Without them, the Intel caps alone are satisfiable everywhere, so uv
+    # picks the old versions for every platform. (PEP 508 has no `not`, so
+    # the negated marker is written out.)
+    "torch>=2.3 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "transformers>=5 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "numpy>=2 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
 ]
 
 [project.optional-dependencies]
