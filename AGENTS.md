@@ -148,6 +148,10 @@ Tags: Search, Architecture, Semantic
 Rationale: Local-first philosophy. all-MiniLM-L6-v2 runs on CPU, no API key needed, no network dependency, no per-query cost. Aligns with abby-normal's SQLite-local architecture.
 Tags: Search, Architecture, Semantic, Local-First
 
+**DEC-007**: MCP SDK v2 with the dependency capped `mcp>=2,<3`
+Rationale: mcp 2.x removed `mcp.server.fastmcp` (FastMCP → MCPServer), and the old unpinned `>=1.0.0` floor let that breaking major land silently on a re-resolve. The server is migrated; the `<3` cap keeps the next major from doing the same.
+Tags: MCP, Dependencies
+
 ## Critical Learnings
 
 **LEARN-001**: FTS search requires careful trigger setup
@@ -179,6 +183,9 @@ Claude treated the old Stop hook ("If there are new learnings worth keeping, sav
 
 **LEARN-010**: Intel Macs cap at torch 2.2.2 / Python 3.12
 PyTorch stopped shipping macOS x86_64 wheels after 2.2.2, and torch 2.2.2 supports at most Python 3.12. On Intel Macs, pin Python 3.12 and keep the marker-scoped caps in `pyproject.toml` (torch<2.3, transformers<5, numpy<2, all scoped to darwin+x86_64 so other platforms stay current). Intel-scoped caps alone are not enough: uv only forks the universal resolution when requirements *contradict* across markers, so without the opposite requirements (`torch>=2.3`, `transformers>=5`, `numpy>=2` for everything that isn't darwin+x86_64) it picks the old versions for every platform. PEP 508 markers have no `not`, so the negation is written out. `requires-python` can't be platform-scoped, so the <3.13 cap is global. torch 2.12 arm64 wheels need macOS 14+.
+
+**LEARN-011**: Verifying MCP server changes
+Two tests cover `mcp/server.py`: `.venv/bin/python tests/test_mcp_server.py` (module imports, tools register) and `.venv/bin/python tests/smoke_stdio.py` (manual; speaks real stdio — initialize + tools/list). The smoke driver must set `ABBY_NORMAL_IN_VENV=1` in its Popen env: without it, server.py's venv guard re-executes as a child, and `terminate()` only kills the outer wrapper, leaving the real server as an orphan holding the output pipe — the driver's result prints fine but the shell job hangs.
 
 ## Conventions
 
