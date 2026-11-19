@@ -23,7 +23,7 @@ if not os.environ.get("ABBY_NORMAL_IN_VENV") and os.path.isdir(_ABBY_VENV):
     )
     sys.exit(result.returncode)
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 MEMORY_QUERY = os.path.expanduser("~/.local/bin/memory-query")
 
@@ -40,7 +40,7 @@ def _run_memory_query(*args):
     return result.stdout.strip()
 
 
-mcp = FastMCP(
+mcp = MCPServer(
     name="abby-normal",
     instructions=(
         "abby-normal is a SQLite-backed memory system for AI agents. "
